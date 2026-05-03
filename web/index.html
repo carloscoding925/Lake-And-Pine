@@ -27,14 +27,19 @@
       </svg>
       LAKE &amp; PINE
     </a>
-    <ul class="nav-links">
-      <li><a href="#about">About</a></li>
-      <li><a href="#team">Team</a></li>
-      <li><a href="#process">Approach</a></li>
-      <li><a href="#portfolio">Work</a></li>
-      <li><a href="#investment">Investment</a></li>
-    </ul>
-    <a href="#contact" class="nav-cta">Inquire</a>
+    <div class="nav-menu" id="nav-menu">
+      <ul class="nav-links">
+        <li><a href="#about">About</a></li>
+        <li><a href="#team">Team</a></li>
+        <li><a href="#process">Approach</a></li>
+        <li><a href="#portfolio">Work</a></li>
+        <li><a href="#investment">Investment</a></li>
+      </ul>
+      <a href="#contact" class="nav-cta">Inquire</a>
+    </div>
+    <button class="nav-toggle" aria-label="Toggle menu" aria-expanded="false" aria-controls="nav-menu">
+      <span></span><span></span><span></span>
+    </button>
   </div>
 </nav>
 
@@ -386,7 +391,7 @@
         </a>
         <div class="contact-row">
           <span class="contact-label">Service Area</span>
-          <span class="contact-value">Reno · Tahoe · Sacramento · Sierra Nevada · Beyond</span>
+          <span class="contact-value">Reno · Tahoe · Sierra Nevada · Beyond</span>
         </div>
         <div class="contact-row">
           <span class="contact-label">Languages</span>
@@ -422,6 +427,19 @@
   const nav = document.getElementById('nav');
   window.addEventListener('scroll', () => {
     nav.classList.toggle('scrolled', window.scrollY > 60);
+  });
+
+  // Mobile hamburger toggle
+  const navToggle = document.querySelector('.nav-toggle');
+  navToggle.addEventListener('click', () => {
+    const isOpen = nav.classList.toggle('open');
+    navToggle.setAttribute('aria-expanded', isOpen);
+  });
+  document.querySelectorAll('.nav-menu a').forEach(link => {
+    link.addEventListener('click', () => {
+      nav.classList.remove('open');
+      navToggle.setAttribute('aria-expanded', 'false');
+    });
   });
 
   // Reveal-on-scroll
