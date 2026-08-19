@@ -245,37 +245,46 @@
       </div>
     </div>
 
-    <!-- FILM GRID -->
+    <!-- FILM CAROUSEL -->
     <div class="portfolio-films reveal">
       <div class="portfolio-tag">— Cinematography —</div>
-      <div class="film-grid">
-        <div class="film-tile">
-          <div class="film-thumb">
-            <iframe src="https://player.vimeo.com/video/1186554408" title="film-1" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media" allowfullscreen></iframe>
+      <div class="film-carousel">
+        <button class="film-arrow film-arrow-prev" type="button" aria-label="Previous film">‹</button>
+        <div class="film-track" id="filmTrack" tabindex="0">
+          <div class="film-slide">
+            <div class="film-thumb">
+              <iframe src="https://player.vimeo.com/video/1186554408?api=1&amp;player_id=film-0" title="Tahoe, in the Trees" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media" allowfullscreen></iframe>
+            </div>
+            <div class="film-meta">
+              <span class="film-name">Tahoe, in the Trees</span>
+              <span class="film-detail">6-minute highlight</span>
+            </div>
           </div>
-          <div class="film-meta">
-            <span class="film-name">Tahoe, in the Trees</span>
-            <span class="film-detail">6-minute highlight</span>
+          <div class="film-slide" data-featured>
+            <div class="film-thumb">
+              <iframe src="https://player.vimeo.com/video/1219101150?api=1&amp;player_id=film-2" title="Sierra Foothills, on the Ranch" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media" allowfullscreen></iframe>
+            </div>
+            <div class="film-meta">
+              <span class="film-name">Sierra Foothills, on the Ranch</span>
+              <span class="film-detail">1-minute preview</span>
+            </div>
+          </div>
+          <div class="film-slide">
+            <div class="film-thumb">
+              <iframe src="https://player.vimeo.com/video/1148430616?api=1&amp;player_id=film-1" title="Tahoe, by the Water" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media" allowfullscreen></iframe>
+            </div>
+            <div class="film-meta">
+              <span class="film-name">Tahoe, by the Water</span>
+              <span class="film-detail">4-minute highlight</span>
+            </div>
           </div>
         </div>
-        <div class="film-tile">
-          <div class="film-thumb">
-            <iframe src="https://player.vimeo.com/video/1148430616" title="film-2" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media" allowfullscreen></iframe>
-          </div>
-          <div class="film-meta">
-            <span class="film-name">Tahoe, by the Water</span>
-            <span class="film-detail">4-minute highlight</span>
-          </div>
-        </div>
-        <div class="film-tile">
-          <div class="film-thumb">
-            <iframe src="https://player.vimeo.com/video/1219101150" title="film-3" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media" allowfullscreen></iframe>
-          </div>
-          <div class="film-meta">
-            <span class="film-name">Sierra Foothills, on the Ranch</span>
-            <span class="film-detail">1-minute highlight</span>
-          </div>
-        </div>
+        <button class="film-arrow film-arrow-next" type="button" aria-label="Next film">›</button>
+      </div>
+      <div class="film-dots" id="filmDots">
+        <button class="film-dot" type="button" aria-label="Show Tahoe, in the Trees"></button>
+        <button class="film-dot" type="button" aria-label="Show Sierra Foothills, on the Ranch"></button>
+        <button class="film-dot" type="button" aria-label="Show Tahoe, by the Water"></button>
       </div>
     </div>
 
@@ -475,6 +484,90 @@
   }, { threshold: 0.12, rootMargin: '0px 0px -80px 0px' });
 
   document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  // Film carousel — infinite center mode. Each slide is placed by its offset from the
+  // active one, so the focused film is always dead centre and the ends wrap around.
+  (function () {
+    const track = document.getElementById('filmTrack');
+    if (!track) return;
+    const slides = Array.from(track.querySelectorAll('.film-slide'));
+    const dots = Array.from(document.querySelectorAll('.film-dot'));
+    const count = slides.length;
+    // The slide marked data-featured is the one in focus on load; otherwise start in the middle
+    const featured = slides.findIndex(slide => slide.hasAttribute('data-featured'));
+    let activeIndex = featured === -1 ? Math.floor(count / 2) : featured;
+    let placed = slides.map(() => 0);
+
+    function pauseSlide(slide) {
+      const iframe = slide.querySelector('iframe');
+      if (iframe && iframe.contentWindow) {
+        iframe.contentWindow.postMessage(JSON.stringify({ method: 'pause' }), 'https://player.vimeo.com');
+      }
+    }
+
+    // Signed distance from the active slide, taking the short way round the loop
+    function offsetOf(i) {
+      let d = ((i - activeIndex) % count + count) % count;
+      if (d > Math.floor(count / 2)) d -= count;
+      return d;
+    }
+
+    function render() {
+      slides.forEach((slide, i) => {
+        const d = offsetOf(i);
+        const wraps = Math.abs(d - placed[i]) > 1;
+        if (wraps) slide.classList.add('is-teleport');
+        slide.style.setProperty('--d', d);
+        slide.classList.toggle('is-active', d === 0);
+        if (wraps) {
+          void slide.offsetWidth; // commit the jump before re-enabling the transition
+          slide.classList.remove('is-teleport');
+        }
+        placed[i] = d;
+      });
+      dots.forEach((dot, i) => dot.classList.toggle('is-active', i === activeIndex));
+    }
+
+    function goTo(index) {
+      const next = ((index % count) + count) % count;
+      if (next === activeIndex) return;
+      pauseSlide(slides[activeIndex]);
+      activeIndex = next;
+      render();
+    }
+
+    document.querySelector('.film-arrow-prev').addEventListener('click', () => goTo(activeIndex - 1));
+    document.querySelector('.film-arrow-next').addEventListener('click', () => goTo(activeIndex + 1));
+    dots.forEach((dot, i) => dot.addEventListener('click', () => goTo(i)));
+    track.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') goTo(activeIndex - 1);
+      if (e.key === 'ArrowRight') goTo(activeIndex + 1);
+    });
+
+    // Click a peeking neighbour to pull it into focus
+    slides.forEach((slide, i) => {
+      slide.addEventListener('click', () => {
+        if (offsetOf(i) !== 0) goTo(i);
+      });
+    });
+
+    // Horizontal swipe — registers on the areas either side of the video iframes
+    let swipeStart = null;
+    track.addEventListener('pointerdown', (e) => { swipeStart = e.clientX; });
+    track.addEventListener('pointercancel', () => { swipeStart = null; });
+    track.addEventListener('pointerup', (e) => {
+      if (swipeStart === null) return;
+      const dx = e.clientX - swipeStart;
+      swipeStart = null;
+      if (Math.abs(dx) > 40) goTo(activeIndex + (dx < 0 ? 1 : -1));
+    });
+
+    // Lay the slides out for the first paint without animating them into place
+    track.classList.add('is-init');
+    render();
+    void track.offsetWidth;
+    track.classList.remove('is-init');
+  })();
 </script>
 
 </body>
