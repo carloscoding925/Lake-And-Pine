@@ -315,7 +315,10 @@
         <div class="film-track" id="filmTrack" tabindex="0">
           <div class="film-slide">
             <div class="film-thumb">
-              <iframe src="https://player.vimeo.com/video/1186554408?api=1&amp;player_id=film-0" title="Tahoe, in the Trees" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media" allowfullscreen></iframe>
+              <iframe src="https://player.vimeo.com/video/1186554408?api=1&amp;title=0&amp;byline=0&amp;portrait=0&amp;player_id=film-0" title="Tahoe, in the Trees" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media" allowfullscreen></iframe>
+              <button class="film-expand" type="button" aria-label="Watch Tahoe, in the Trees larger">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+              </button>
             </div>
             <div class="film-meta">
               <span class="film-name">Tahoe, in the Trees</span>
@@ -324,7 +327,10 @@
           </div>
           <div class="film-slide" data-featured>
             <div class="film-thumb">
-              <iframe src="https://player.vimeo.com/video/1219101150?api=1&amp;player_id=film-2" title="Sierra Foothills, on the Ranch" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media" allowfullscreen></iframe>
+              <iframe src="https://player.vimeo.com/video/1219101150?api=1&amp;title=0&amp;byline=0&amp;portrait=0&amp;player_id=film-2" title="Sierra Foothills, on the Ranch" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media" allowfullscreen></iframe>
+              <button class="film-expand" type="button" aria-label="Watch Sierra Foothills, on the Ranch larger">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+              </button>
             </div>
             <div class="film-meta">
               <span class="film-name">Sierra Foothills, on the Ranch</span>
@@ -333,7 +339,10 @@
           </div>
           <div class="film-slide">
             <div class="film-thumb">
-              <iframe src="https://player.vimeo.com/video/1148430616?api=1&amp;player_id=film-1" title="Tahoe, by the Water" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media" allowfullscreen></iframe>
+              <iframe src="https://player.vimeo.com/video/1148430616?api=1&amp;title=0&amp;byline=0&amp;portrait=0&amp;player_id=film-1" title="Tahoe, by the Water" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media" allowfullscreen></iframe>
+              <button class="film-expand" type="button" aria-label="Watch Tahoe, by the Water larger">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+              </button>
             </div>
             <div class="film-meta">
               <span class="film-name">Tahoe, by the Water</span>
@@ -515,6 +524,22 @@
   </div>
 </footer>
 
+<!-- ============================ FILM LIGHTBOX ============================ -->
+<div class="film-lightbox" id="filmLightbox" role="dialog" aria-modal="true" aria-labelledby="lightboxTitle" hidden>
+  <button class="lightbox-close" id="lightboxClose" type="button" aria-label="Close film">&times;</button>
+  <div class="lightbox-shell" id="lightboxShell"></div>
+  <div class="lightbox-bar">
+    <div class="lightbox-caption">
+      <span class="lightbox-title" id="lightboxTitle"></span>
+      <span class="lightbox-detail" id="lightboxDetail"></span>
+    </div>
+    <button class="lightbox-fs" id="lightboxFs" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+      <span class="fs-label">Fullscreen</span>
+    </button>
+  </div>
+</div>
+
 <script>
   // Nav scroll effect
   const nav = document.getElementById('nav');
@@ -606,11 +631,19 @@
       if (e.key === 'ArrowRight') goTo(activeIndex + 1);
     });
 
-    // Click a peeking neighbour to pull it into focus
+    // Click a peeking neighbour to pull it into focus. The focused slide keeps its own
+    // clicks so Vimeo still handles play/pause — only the expand button is intercepted.
     slides.forEach((slide, i) => {
       slide.addEventListener('click', () => {
         if (offsetOf(i) !== 0) goTo(i);
       });
+      const expand = slide.querySelector('.film-expand');
+      if (expand) {
+        expand.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openLightbox(slide, expand);
+        });
+      }
     });
 
     // Horizontal swipe — registers on the areas either side of the video iframes
@@ -622,6 +655,139 @@
       const dx = e.clientX - swipeStart;
       swipeStart = null;
       if (Math.abs(dx) > 40) goTo(activeIndex + (dx < 0 ? 1 : -1));
+    });
+
+    // ---- Lightbox ----------------------------------------------------------
+    // At carousel size the player is ~550px wide, and Vimeo folds fullscreen away
+    // behind its overflow chevron below roughly 600px. Reopening the film large puts
+    // the full control bar back, and the bar below it carries our own fullscreen
+    // control so nobody has to go hunting through the player's menu.
+    const lightbox = document.getElementById('filmLightbox');
+    const shell = document.getElementById('lightboxShell');
+    const closeBtn = document.getElementById('lightboxClose');
+    const fsBtn = document.getElementById('lightboxFs');
+    const fsLabel = fsBtn.querySelector('.fs-label');
+    const lbTitle = document.getElementById('lightboxTitle');
+    const lbDetail = document.getElementById('lightboxDetail');
+    let lastTrigger = null;
+
+    // iOS Safari has no Fullscreen API for arbitrary elements — the lightbox is
+    // already near-fullscreen there, and Vimeo's own button still works inside it.
+    const fsEnabled = document.fullscreenEnabled || document.webkitFullscreenEnabled;
+    if (!fsEnabled) fsBtn.hidden = true;
+
+    function fullscreenElement() {
+      return document.fullscreenElement || document.webkitFullscreenElement || null;
+    }
+
+    function openLightbox(slide, trigger) {
+      const inline = slide.querySelector('iframe');
+      const id = inline && inline.src.match(/video\/(\d+)/);
+      if (!id) return;
+
+      pauseSlide(slide);
+      const name = slide.querySelector('.film-name').textContent.trim();
+      lbTitle.textContent = name;
+      lbDetail.textContent = slide.querySelector('.film-detail').textContent.trim();
+
+      const frame = document.createElement('iframe');
+      frame.src = 'https://player.vimeo.com/video/' + id[1] +
+        '?api=1&autoplay=1&title=0&byline=0&portrait=0&player_id=film-lightbox';
+      frame.title = name;
+      frame.allow = 'autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media';
+      frame.allowFullscreen = true;
+      shell.appendChild(frame);
+
+      lastTrigger = trigger;
+      lightbox.hidden = false;
+      void lightbox.offsetWidth; // commit the unhide so the fade actually runs
+      lightbox.classList.add('is-open');
+      document.body.style.overflow = 'hidden';
+      closeBtn.focus();
+    }
+
+    function closeLightbox() {
+      if (lightbox.hidden) return;
+      if (fullscreenElement()) {
+        (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      }
+      // Tear the player down immediately rather than after the fade, so the audio
+      // stops the moment the film is dismissed.
+      const frame = shell.querySelector('iframe');
+      if (frame) frame.remove();
+      lightbox.classList.remove('is-open');
+      document.body.style.overflow = '';
+      setTimeout(() => { lightbox.hidden = true; }, 280);
+      if (lastTrigger) {
+        lastTrigger.focus();
+        lastTrigger = null;
+      }
+    }
+
+    // Ask the Vimeo player to go fullscreen itself. Used when the browser won't let us
+    // put our own element fullscreen — some embedded webviews refuse the request outright.
+    function askPlayerForFullscreen() {
+      const frame = shell.querySelector('iframe');
+      if (frame && frame.contentWindow) {
+        frame.contentWindow.postMessage(
+          JSON.stringify({ method: 'requestFullscreen' }), 'https://player.vimeo.com');
+      }
+    }
+
+    function toggleFullscreen() {
+      if (fullscreenElement()) {
+        (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+        return;
+      }
+      const request = shell.requestFullscreen || shell.webkitRequestFullscreen;
+      if (!request) {
+        askPlayerForFullscreen();
+        return;
+      }
+      const pending = request.call(shell);
+      if (pending && pending.catch) pending.catch(askPlayerForFullscreen);
+    }
+
+    function syncFsLabel() {
+      const on = !!fullscreenElement();
+      fsLabel.textContent = on ? 'Exit Fullscreen' : 'Fullscreen';
+      fsBtn.setAttribute('aria-pressed', on);
+    }
+
+    fsBtn.addEventListener('click', toggleFullscreen);
+    closeBtn.addEventListener('click', closeLightbox);
+    document.addEventListener('fullscreenchange', syncFsLabel);
+    document.addEventListener('webkitfullscreenchange', syncFsLabel);
+    syncFsLabel();
+
+    // Clicking the backdrop closes; clicks on the player or the bar do not
+    lightbox.addEventListener('click', (e) => {
+      if (e.target === lightbox) closeLightbox();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape' || lightbox.hidden) return;
+      // In fullscreen, let the browser's own Escape handling exit that first
+      if (fullscreenElement()) return;
+      closeLightbox();
+    });
+
+    // Keep tabbing inside the dialog. Once focus lands in the Vimeo iframe the
+    // keystrokes belong to the player, which is what we want anyway.
+    lightbox.addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab') return;
+      const focusable = Array.from(lightbox.querySelectorAll('button, iframe'))
+        .filter(el => !el.hidden);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     });
 
     // Lay the slides out for the first paint without animating them into place
