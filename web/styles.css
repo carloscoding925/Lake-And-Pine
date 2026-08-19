@@ -480,9 +480,9 @@ section { padding: 130px 0; position: relative; }
 /* FILM GRID */
 .film-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 30px;
-  max-width: 1000px;
+  max-width: 1400px;
   margin: 0 auto;
 }
 .film-tile {
