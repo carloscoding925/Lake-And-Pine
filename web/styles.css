@@ -512,7 +512,11 @@ section { padding: 130px 0; position: relative; }
 .film-slide {
   grid-area: stack;
   justify-self: center;
-  width: 46%;
+  /* 54% of the 1200px track puts the focused player at ~648px. Vimeo only shows its
+     full control bar — fullscreen button included — above roughly 620px; below that it
+     collapses everything behind an overflow chevron. The few extra points buy headroom
+     over that threshold while still leaving the neighbours peeking either side. */
+  width: 54%;
   display: flex;
   flex-direction: column;
   transform: translateX(calc(var(--d, 0) * 100%)) scale(0.82);
@@ -622,6 +626,176 @@ section { padding: 130px 0; position: relative; }
   transition: background 0.3s ease;
 }
 .film-dot.is-active { background: var(--gold); }
+
+/* Expand-to-lightbox control. Shown only on the focused film — the peeking
+   neighbours aren't playable, so an expand affordance there would be a dead end.
+   Sits top-left because Vimeo puts its own overflow menu in the top-right corner. */
+.film-expand {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(245, 239, 226, 0.35);
+  background: rgba(31, 42, 31, 0.55);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  color: var(--cream);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease, background 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+.film-slide.is-active .film-expand {
+  opacity: 1;
+  pointer-events: auto;
+}
+.film-expand:hover {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--forest-deep);
+}
+.film-expand:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+.film-expand svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+}
+
+/* FILM LIGHTBOX — the films reopened large. Below roughly 600px of player width
+   Vimeo collapses fullscreen behind its overflow chevron, so showing the film at
+   full width both restores the native control bar and gives our own fullscreen
+   button somewhere obvious to live. */
+.film-lightbox {
+  --shell-w: min(92vw, 1500px, calc((80vh - 60px) * 16 / 9));
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  background: rgba(24, 32, 24, 0.94);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity 0.28s ease;
+}
+.film-lightbox[hidden] { display: none; }
+.film-lightbox.is-open { opacity: 1; }
+.lightbox-shell {
+  position: relative;
+  width: var(--shell-w);
+  aspect-ratio: 16 / 9;
+  background: #000;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+}
+.lightbox-shell iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+/* Written as separate rules on purpose — a browser that doesn't know one of these
+   prefixes would otherwise drop the whole selector list. */
+.lightbox-shell:fullscreen {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  box-shadow: none;
+}
+.lightbox-shell:-webkit-full-screen {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  box-shadow: none;
+}
+.lightbox-bar {
+  width: var(--shell-w);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+.lightbox-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+  color: var(--cream);
+  letter-spacing: 0.01em;
+}
+.lightbox-detail {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 14px;
+  color: rgba(245, 239, 226, 0.6);
+  margin-left: 12px;
+  letter-spacing: 0.03em;
+}
+.lightbox-fs {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  flex-shrink: 0;
+  padding: 11px 18px;
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--cream);
+  background: transparent;
+  border: 1px solid rgba(245, 239, 226, 0.32);
+  cursor: pointer;
+  transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+.lightbox-fs:hover {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--forest-deep);
+}
+.lightbox-fs svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+}
+.lightbox-fs[hidden] { display: none; }
+.lightbox-close {
+  position: absolute;
+  top: 24px;
+  right: 28px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(245, 239, 226, 0.3);
+  background: transparent;
+  color: var(--cream);
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+.lightbox-close:hover {
+  background: var(--cream);
+  border-color: var(--cream);
+  color: var(--forest-deep);
+}
 @media (max-width: 900px) {
   .photo-grid { grid-auto-rows: 110px; gap: 10px; }
   .photo-1 { grid-column: span 12; grid-row: span 3; }
@@ -631,12 +805,21 @@ section { padding: 130px 0; position: relative; }
   .film-arrow { width: 38px; height: 38px; font-size: 18px; }
   .film-arrow-prev { left: -4px; }
   .film-arrow-next { right: -4px; }
+  .film-lightbox { gap: 16px; }
+  .lightbox-close { top: 16px; right: 16px; width: 40px; height: 40px; }
 }
 @media (max-width: 600px) {
   .photo-grid { grid-auto-rows: 90px; gap: 8px; }
   .photo-1 { grid-column: span 12; grid-row: span 3; }
   .photo-2, .photo-3 { grid-column: span 12; grid-row: span 2; }
   .photo-4, .photo-5, .photo-6 { grid-column: span 12; grid-row: span 2; }
+  .film-expand { width: 34px; height: 34px; top: 8px; left: 8px; }
+  .film-expand svg { width: 14px; height: 14px; }
+  /* Caption and fullscreen stack rather than squeezing onto one line */
+  .lightbox-bar { flex-direction: column; align-items: flex-start; gap: 14px; }
+  .lightbox-title { font-size: 17px; }
+  .lightbox-detail { margin-left: 10px; }
+  .lightbox-fs { align-self: stretch; justify-content: center; }
 }
 
 /* ========== INVESTMENT / PRICING ========== */
