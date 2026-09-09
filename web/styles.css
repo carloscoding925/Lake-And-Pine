@@ -558,6 +558,25 @@ section { padding: 130px 0; position: relative; }
 }
 .film-slide.is-active .film-thumb iframe { pointer-events: auto; }
 .film-slide:not(.is-active) { cursor: pointer; }
+
+/* Transparent capture layer over the focused film, touch only. A cross-origin iframe
+   consumes the pointer events above it, and the focused player is deliberately
+   pointer-events:auto so Vimeo can run its own controls — which left the swipe handler
+   with only the open ground around the peeking neighbours to work with. On desktop that
+   is enough; on a phone the focused slide is 74% of the track and the gesture almost
+   always starts on dead ground, so the arrows were the only way to move the carousel.
+   Stops 46px short of the bottom: Vimeo's control bar lives there and stays directly
+   usable, so scrubbing and the overflow menu are not swallowed. */
+.film-swipe {
+  position: absolute;
+  inset: 0 0 46px 0;
+  z-index: 1;
+  display: none;
+  touch-action: pan-y;
+}
+@media (pointer: coarse) {
+  .film-slide.is-active .film-swipe { display: block; }
+}
 .film-meta {
   margin-top: 18px;
   display: flex;

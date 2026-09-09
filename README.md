@@ -28,7 +28,7 @@ Lake-And-Pine/
 │   ├── og-image.png           # Open Graph link preview (1200×1200)
 │   ├── robots.txt             # Allows all crawlers, points at the sitemap
 │   ├── sitemap.xml            # Single-URL sitemap (update lastmod on content changes)
-│   └── optimized-assets/      # Web-ready portfolio images (resized + recompressed)
+│   └── optimized-assets/      # Web-ready portfolio images and team portraits
 └── README.md
 ```
 
@@ -84,7 +84,30 @@ Source photos from the camera are typically 5–10 MB each — far larger than w
 
 This pipeline reduced the photo grid payload from ~36 MB → ~1.4 MB (a 96% reduction) with no visible quality loss.
 
-**One exception:** the three team portraits are not files — they're inlined into `index.html` as base64 `data:` URIs, which is why the HTML is ~320 KB rather than ~30 KB. Inlined images can't be cached separately from the page or lazy-loaded, and they block the HTML parse, so new photos should go through the pipeline above rather than following the portraits' example.
+### The team portraits, and why they left the HTML
+
+The three portraits used to be inlined into `index.html` as base64 `data:` URIs, which made the document ~329 KB rather than ~42 KB. They are now ordinary files — `optimized-assets/team-chava.jpg`, `-isma`, `-juan` — carrying `loading="lazy"` because the team section is below the fold.
+
+They were **extracted byte-for-byte rather than re-exported**: at 900×1125 and quality 80 they already sit under the pipeline's 1600px ceiling, so `-resize '1600x1600>'` is a no-op and a re-encode at q82 only costs a generation. Measured, the whole pipeline moved the three files by 23 bytes.
+
+Total transfer barely moved either, which is the part worth knowing before optimising anything else here — Brotli recovers almost all of base64's 33% inflation, so the two layouts are within ~2.5 KB of each other:
+
+| | HTML (brotli) | images | total |
+|---|---|---|---|
+| inlined | 221.9 KB | — | 221.9 KB |
+| as files | 8.8 KB | 215.4 KB | 224.4 KB |
+
+The win is in *when* those bytes move, not how many:
+
+- **The document is 96% smaller.** Everything after the team section in the source — the three Vimeo iframes, pricing, contact, and the inline `<script>` that wires the carousel and lightbox — used to sit behind 217 KB of portrait data in the byte stream.
+- **A visitor who bounces at the hero never fetches them.**
+- **They revalidate independently.** Cloudflare serves this site `public, max-age=0, must-revalidate`, so an unchanged file comes back as a 304 with no body. Inlined, the portraits shared the HTML's ETag — so every copy edit re-sent all 215 KB of them to every returning visitor. On a hand-edited site that deploys on push, that was the recurring cost.
+
+No layout shift comes with the lazy loading: `.team-portrait-wrap` has `aspect-ratio: 4/5`, so the space is reserved whether or not the image has landed.
+
+**Don't downscale them.** The card is 373px wide at desktop, but the grid goes single-column with `max-width:480px` below 900px — the *phone* gets the bigger slot. At 900px the source covers 2.4× at desktop and 1.9× on a mobile retina screen. A 750px export saves 51 KB and drops mobile to 1.6×.
+
+Note that `assets/` holds no higher-resolution originals for these three — the 900px files are the only copies, so they are the masters as well as the exports.
 
 ## Films
 
@@ -100,6 +123,25 @@ Clicking the `⤢` button on the focused film opens it in a lightbox at up to 15
 The lightbox's own fullscreen button is hidden on iPhone: iOS Safari has never supported the Fullscreen API on arbitrary elements, and the `<video>` it would need lives inside Vimeo's cross-origin iframe. iPhone visitors use Vimeo's own control instead. macOS and iPad Safari are fine, via the `webkit`-prefixed fallbacks in both the script and `styles.css`.
 
 To add or replace a film, copy an existing `.film-slide` block, swap the Vimeo ID and titles, and add a matching `.film-dot` button — the carousel counts slides at runtime, so no other wiring is needed.
+
+### Swipe, and why it needs a capture layer
+
+Swipe listeners live on `.film-track`, but a cross-origin iframe consumes the pointer events over it, and the focused film's iframe is deliberately `pointer-events:auto` so Vimeo can run its own controls. On desktop that costs nothing — the focused slide is 54% of the track, so there is open ground either side to start a gesture on. On a phone the focused slide is **74%** of the track and only the slivers of the peeking neighbours were live, which left the arrows as the only way to move it.
+
+`.film-swipe` is a transparent layer over the focused film, shown only under `@media(pointer:coarse)` so desktop behaviour is untouched. Its events bubble to the track, so one handler still serves both it and the open ground. Two details:
+
+- **It stops 46px short of the bottom.** Vimeo's control bar lives there and stays directly usable — the layer would otherwise swallow scrubbing and the overflow menu. Measured against the phone-size player (229×129 at a 390px viewport, since `.container` keeps its 40px gutters all the way down): 46px lands on the bar's top edge.
+- **It relays taps.** A tap that the layer intercepts would have reached the player, so the script forwards it as play/pause. Vimeo has no toggle method, so state is tracked in a `Map`, and the script subscribes to the player's own `play`/`pause` events over `postMessage` to stay honest when someone uses that exposed control bar.
+
+Navigation needs horizontal intent — more than 40px of travel *and* more horizontal than vertical — so a diagonal flick while scrolling past the section doesn't move the carousel.
+
+A play sent over `postMessage` carries no user activation into the player's origin, so the autoplay policy treats it as programmatic and Vimeo falls back to **muted** playback rather than not playing at all. The relayed tap therefore sends `setMuted:false` alongside the play — `setMuted`, not `setVolume`, which Vimeo documents as silently ignored on iOS and Android where volume belongs to the system. Only the first start of a given slide unmutes (tracked in a `WeakSet`), so someone who deliberately mutes with Vimeo's own control isn't overridden on the next tap.
+
+The lightbox has the same problem by a different route: `autoplay=1` on a freshly created iframe is only ever granted muted on mobile. It unmutes on player load and once more on its first `play` event, because the muted fallback can land after `load`.
+
+Playing muted is the browser's designed fallback, so neither path can be fully verified on desktop — desktop grants unmuted autoplay and never enters the failing state. Confirm on a real handset.
+
+The same fix, and the reasoning behind it, is in the sibling Mountain Pine Media repo — where portrait films made the dead zone worse.
 
 ## SEO & link previews
 
