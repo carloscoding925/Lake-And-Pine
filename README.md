@@ -374,6 +374,51 @@ Review text is still HTML-escaped into the body — `preview-email.mjs` includes
 literal `<em>` and an ampersand in the review so that stays covered, and a `link-spam` case so the
 flagged-review banner is visible in the preview rather than only in production.
 
+#### Email authentication (SPF, DKIM, DMARC)
+
+Two separate systems send mail as this domain, and they authenticate by different routes. The
+records live in Cloudflare DNS:
+
+| Record | Value | Serves |
+|---|---|---|
+| `MX` | `smtp.google.com` | Google Workspace — inbound mail for `weddings@`. **Leave alone.** |
+| `TXT` @ apex | `v=spf1 include:_spf.google.com ~all` | SPF — authorises Google only |
+| `TXT` @ `google._domainkey` | *(public key)* | DKIM for Workspace mail |
+| `TXT` @ `resend._domainkey` | *(public key)* | DKIM for mail the review Worker sends |
+| `TXT` @ `_dmarc` | `v=DMARC1; p=none` | DMARC policy |
+
+**Resend is deliberately absent from the SPF record, and that is not a bug to fix.** DMARC passes
+when *either* SPF or DKIM aligns. Worker mail fails the SPF leg — the record lists Google and
+nothing else — and passes on DKIM, because Resend signs with the key at `resend._domainkey` on this
+domain. The practical consequence: **that DKIM record is the only thing making review notifications
+DMARC-compliant.** Delete it while tidying DNS and the emails keep sending but start failing
+authentication, which is the sort of thing that degrades quietly into spam folders rather than
+erroring.
+
+**`p=none` is monitoring, not enforcement.** It asks receivers to report on failures and to act on
+none of them, so publishing it carried no delivery risk. It satisfies the check Resend's dashboard
+flags under Insights, and it does *not* yet stop anyone spoofing the domain — worth knowing for a
+business whose clients might plausibly receive a fake invoice. Tightening to `p=quarantine` is
+low-risk whenever someone wants it, since both streams already authenticate cleanly.
+
+**There is no `rua` tag, by choice.** Aggregate reports arrive as daily XML from every receiver that
+sees the domain's mail, and pointing that at the shared inbox is noise the photographers don't need.
+The trade is no visibility into failures. If that's ever wanted, the address has to be on this
+domain — an external one (a personal Gmail, say) requires *that* domain to publish an authorisation
+record, which it won't.
+
+Verifying, including straight from the authoritative nameservers when a local resolver has a stale
+negative cache:
+
+```bash
+dig +short TXT _dmarc.lakeandpinecollective.com
+dig +short TXT resend._domainkey.lakeandpinecollective.com
+dig +short @"$(dig +short NS lakeandpinecollective.com | head -1)" TXT _dmarc.lakeandpinecollective.com
+```
+
+DMARC requires **exactly one** TXT record at `_dmarc`; a second one makes the whole policy fail
+rather than taking precedence.
+
 ## Image workflow
 
 Source photos from the camera are typically 5–10 MB each — far larger than what the web needs. Before adding new photos to the portfolio:
