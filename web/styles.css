@@ -991,7 +991,7 @@ section { padding: 130px 0; position: relative; }
 }
 
 /* ========== CONTACT ========== */
-.contact { background: var(--forest-deep); color: var(--cream); padding: 130px 0 60px; }
+.contact { background: var(--forest-deep); color: var(--cream); padding: 130px 0; }
 .contact .section-eyebrow { color: var(--gold-soft); }
 .contact .section-title { color: var(--cream); }
 .contact .section-title .italic { color: var(--cream); opacity: 0.5; }
@@ -1045,6 +1045,71 @@ section { padding: 130px 0; position: relative; }
 a.contact-row:hover .contact-value { color: var(--gold-soft); }
 @media (max-width: 800px) {
   .contact-grid { grid-template-columns: 1fr; gap: 60px; }
+}
+
+/* ========== TESTIMONIALS ========== */
+/* Cream-warm, the same field as the team section — both are about people, and the
+   change of ground seals the contact CTA off rather than letting the eye run on
+   into a third dark section before the footer. */
+.testimonials { background: var(--cream-warm); }
+.testimonials-header { text-align: center; margin-bottom: 80px; }
+.testimonials-header .section-intro { margin: 0 auto 0; }
+.testimonial-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px;
+}
+.testimonial {
+  display: flex; flex-direction: column;
+  padding: 42px 36px 34px;
+  background: var(--cream);
+  border: 1px solid rgba(45, 59, 45, 0.12);
+  transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.4s ease;
+}
+.testimonial:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 24px 50px -20px rgba(31, 42, 31, 0.18);
+}
+.testimonial-stars {
+  font-size: 11px; letter-spacing: 0.3em;
+  color: var(--gold);
+  margin-bottom: 22px;
+  line-height: 1;
+}
+.testimonial-quote {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 19px; line-height: 1.7;
+  color: var(--forest-deep);
+  /* Cards stretch to the tallest in the row, so growing the quote drops every
+     attribution onto a common baseline no matter how uneven the copy is. */
+  flex-grow: 1;
+}
+/* Quote marks live in CSS so the copy stays clean to edit */
+.testimonial-quote::before { content: '“'; color: var(--gold); }
+.testimonial-quote::after { content: '”'; color: var(--gold); }
+.testimonial-attr {
+  margin-top: 26px; padding-top: 20px;
+  border-top: 1px solid rgba(45, 59, 45, 0.2);
+}
+.testimonial-name {
+  display: block;
+  font-family: 'Playfair Display', serif;
+  font-weight: 500; font-size: 18px;
+  color: var(--forest-deep);
+  line-height: 1.2;
+}
+.testimonial-detail {
+  display: block;
+  margin-top: 8px;
+  font-size: 10px; letter-spacing: 0.25em;
+  text-transform: uppercase; color: var(--forest-soft);
+}
+@media (max-width: 900px) {
+  .testimonials-header { margin-bottom: 60px; }
+  .testimonial-grid { grid-template-columns: 1fr; gap: 30px; max-width: 480px; margin: 0 auto; }
+}
+@media (max-width: 600px) {
+  .testimonial { padding: 34px 28px 28px; }
+  .testimonial-quote { font-size: 18px; }
 }
 
 /* ========== FOOTER ========== */
