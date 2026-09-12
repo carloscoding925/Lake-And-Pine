@@ -940,7 +940,7 @@ section { padding: 130px 0; position: relative; }
 }
 
 /* ========== CONTACT ========== */
-.contact { background: var(--forest-deep); color: var(--cream); padding: 130px 0; }
+.contact { background: var(--forest-deep); color: var(--cream); padding: 130px 0 60px; }
 .contact .section-eyebrow { color: var(--gold-soft); }
 .contact .section-title { color: var(--cream); }
 .contact .section-title .italic { color: var(--cream); opacity: 0.5; }
