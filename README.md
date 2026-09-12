@@ -68,14 +68,29 @@ npx wrangler dev
 
 Pushes to the `main` branch trigger an automatic build and deploy of the `web/` directory to Cloudflare.
 
-The review Worker needs one secret set once per environment, which never lives in the repo:
+The review Worker needs `RESEND_API_KEY`, and **production and local dev read it from two
+different places** — a repo-root `.env` supplies neither.
+
+For the deployed Worker, set it once. The command prompts for the value, so the key never reaches
+your shell history:
 
 ```bash
 cd web
 npx wrangler secret put RESEND_API_KEY
 ```
 
-`REVIEW_TO` and `REVIEW_FROM` are optional overrides; without them the Worker sends to `weddings@lakeandpinecollective.com` from `reviews@lakeandpinecollective.com`.
+For `wrangler dev`, put it in `web/.dev.vars` (gitignored, alongside `wrangler.jsonc` — not the
+repo root):
+
+```
+RESEND_API_KEY=re_...
+```
+
+Without it the endpoint returns `500 {"error":"Email is not configured."}`; with a bad key it
+returns `502`. Those two responses are the quickest way to tell which half is misconfigured.
+
+`REVIEW_TO` and `REVIEW_FROM` are optional overrides; without them the Worker sends to
+`weddings@lakeandpinecollective.com` from `reviews@lakeandpinecollective.com`.
 
 ## Image workflow
 

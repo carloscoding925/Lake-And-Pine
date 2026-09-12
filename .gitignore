@@ -2,4 +2,10 @@
 
 # Local wrangler dev state (recreated by `wrangler dev`)
 .wrangler/
+
 TODO.md
+.env
+
+# Local Worker secrets for `wrangler dev` — same class of file as .env
+.dev.vars
+.dev.vars.*
