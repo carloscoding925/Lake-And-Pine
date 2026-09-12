@@ -1068,6 +1068,14 @@ a.contact-row:hover .contact-value { color: var(--gold-soft); }
   transform: translateY(-6px);
   box-shadow: 0 24px 50px -20px rgba(31, 42, 31, 0.18);
 }
+/* While there is only one review, it shouldn't sit in the left column of a three-up
+   grid. Spanning every column and capping the width centres it; the rule stops
+   applying by itself as soon as a second review is added. */
+.testimonial:only-child {
+  grid-column: 1 / -1;
+  max-width: 560px;
+  margin: 0 auto;
+}
 .testimonial-stars {
   font-size: 11px; letter-spacing: 0.3em;
   color: var(--gold);
@@ -1100,6 +1108,10 @@ a.contact-row:hover .contact-value { color: var(--gold-soft); }
 .testimonial-detail {
   display: block;
   margin-top: 8px;
+  /* Not every review arrives with a date and venue attached. An empty span still
+     holds its line, so one card missing that detail doesn't drop its hairline and
+     name 24px below the rest of the row. */
+  min-height: 1.6em;
   font-size: 10px; letter-spacing: 0.25em;
   text-transform: uppercase; color: var(--forest-soft);
 }
