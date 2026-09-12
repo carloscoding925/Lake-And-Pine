@@ -1277,6 +1277,14 @@ footer {
   margin-top: 12px;
 }
 .field-error:empty { display: none; }
+/* Scoped under .review-form so it outranks the plain label rule (0,2,0 vs 0,2,0 would
+   tie and lose on order; .field.is-invalid adds the extra class). */
+.review-form .field.is-invalid label { color: #8C3B2E; }
+.review-form .field.is-invalid input { border-color: #8C3B2E; }
+.review-form .field.is-invalid input:focus {
+  border-color: #8C3B2E;
+  box-shadow: 0 0 0 3px rgba(140, 59, 46, 0.14);
+}
 .required-tag {
   letter-spacing: 0.18em;
   color: var(--gold); opacity: 0.9;

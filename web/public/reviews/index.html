@@ -79,9 +79,10 @@
         <input type="text" id="name" name="name" autocomplete="name">
       </div>
 
-      <div class="field">
+      <div class="field" id="emailField">
         <label for="email">Email</label>
         <input type="email" id="email" name="email" autocomplete="email">
+        <p class="field-error" id="emailError" role="alert"></p>
       </div>
 
       <fieldset class="field rating-field">
@@ -204,6 +205,18 @@
     const submit = form.querySelector('.review-submit');
     const ratingField = form.querySelector('.rating-field');
     const ratingError = document.getElementById('ratingError');
+    const emailInput = document.getElementById('email');
+    const emailField = document.getElementById('emailField');
+    const emailError = document.getElementById('emailError');
+
+    // Optional, so an empty box is fine. But a typo'd address is worse than none at
+    // all: it becomes the email's reply_to, so the review arrives looking replyable
+    // and silently isn't. checkValidity() rather than a hand-rolled regex — the input
+    // is type="email", so the browser already holds the rule. checkValidity doesn't
+    // raise the native bubble, which lets the message render in the page's own voice.
+    function emailProblem() {
+      return emailInput.value.trim() !== '' && !emailInput.checkValidity();
+    }
 
     const rating = () => form.querySelector('input[name="rating"]:checked');
 
@@ -213,6 +226,15 @@
       if (e.target.name === 'rating') {
         ratingField.classList.remove('is-missing');
         ratingError.textContent = '';
+      }
+    });
+
+    // On input, not on change: clears while they are still fixing it rather than
+    // making them leave the field to find out.
+    emailInput.addEventListener('input', () => {
+      if (!emailProblem()) {
+        emailField.classList.remove('is-invalid');
+        emailError.textContent = '';
       }
     });
 
@@ -254,8 +276,18 @@
         return;
       }
 
-      // Still worth running: nothing is required any more, but a malformed address in
-      // the email field should be caught before it becomes an unreplyable review.
+      if (emailProblem()) {
+        emailField.classList.add('is-invalid');
+        emailError.textContent =
+          'That address doesn\u2019t look quite right — check for a missing @, or leave it blank.';
+        emailInput.focus();
+        emailInput.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        return;
+      }
+      emailField.classList.remove('is-invalid');
+      emailError.textContent = '';
+
+      // Backstop for anything either check above missed.
       if (!form.reportValidity()) return;
 
       // The widget usually resolves before anyone finishes typing, but it can still be

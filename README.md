@@ -221,6 +221,14 @@ submit handler checks the rating first and writes into a `role="alert"` slot dir
 stars, so the message lands where the fix is rather than down beside the button. It clears as soon
 as a star is picked.
 
+**The email field gets the same treatment when it has a value in it**, through `checkValidity()` on
+the `type="email"` input rather than a hand-rolled pattern — the browser already holds that rule, and
+`checkValidity()` doesn't raise the native bubble, so the message can render beside the field in the
+page's own voice instead of in Chrome's. An empty box stays perfectly fine. This matters more than
+it looks: a typo'd address becomes the notification email's `reply_to`, so the review arrives looking
+replyable and silently isn't. The Worker repeats the check and answers `400`, because validation in
+the page is a courtesy to the person filling it in, not a guarantee to us.
+
 **The fields otherwise mirror the testimonial card exactly** — rating, quote, name, and the date/venue line.
 The wedding date is a `month` input, so it yields `2026-04` and the Worker renders it as
 `April 2026`, which is the form the card wants, so a review arrives ready to drop into the grid
