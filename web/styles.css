@@ -939,57 +939,6 @@ section { padding: 130px 0; position: relative; }
   .package.featured:hover { transform: translateY(-8px); }
 }
 
-/* ========== À LA CARTE ========== */
-.alacarte {
-  margin: 100px auto 0;
-  max-width: 760px;
-  padding: 0 20px;
-}
-.alacarte-head { text-align: center; margin-bottom: 40px; }
-.alacarte-title {
-  font-family: 'Playfair Display', serif;
-  font-size: clamp(28px, 4vw, 38px);
-  font-weight: 400;
-  color: var(--forest-deep);
-  margin-top: 12px;
-  line-height: 1.15;
-}
-.alacarte-title .italic { font-style: italic; color: var(--gold); }
-.alacarte-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-.alacarte-row {
-  display: flex;
-  align-items: baseline;
-  padding: 16px 4px;
-  border-bottom: 1px dashed rgba(74, 93, 72, 0.28);
-  font-size: 16px;
-  color: var(--forest-deep);
-  letter-spacing: 0.01em;
-}
-.alacarte-row:last-child { border-bottom: none; }
-.ac-name { font-weight: 400; }
-.ac-dots { flex: 1; }
-.ac-price {
-  font-family: 'Playfair Display', serif;
-  font-weight: 500;
-  color: var(--gold);
-  white-space: nowrap;
-  margin-left: 16px;
-}
-.ac-price-soft {
-  font-style: italic;
-  font-weight: 400;
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 17px;
-}
-@media (max-width: 600px) {
-  .alacarte-row { font-size: 15px; padding: 14px 2px; }
-  .ac-price { margin-left: 12px; }
-}
-
 /* ========== CONTACT ========== */
 .contact { background: var(--forest-deep); color: var(--cream); padding: 130px 0 60px; }
 .contact .section-eyebrow { color: var(--gold-soft); }
@@ -1045,6 +994,83 @@ section { padding: 130px 0; position: relative; }
 a.contact-row:hover .contact-value { color: var(--gold-soft); }
 @media (max-width: 800px) {
   .contact-grid { grid-template-columns: 1fr; gap: 60px; }
+}
+
+/* ========== TESTIMONIALS ========== */
+/* Cream-warm, the same field as the team section — both are about people, and the
+   change of ground seals the contact CTA off rather than letting the eye run on
+   into a third dark section before the footer. */
+.testimonials { background: var(--cream-warm); }
+.testimonials-header { text-align: center; margin-bottom: 80px; }
+.testimonials-header .section-intro { margin: 0 auto 0; }
+.testimonial-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px;
+}
+.testimonial {
+  display: flex; flex-direction: column;
+  padding: 42px 36px 34px;
+  background: var(--cream);
+  border: 1px solid rgba(45, 59, 45, 0.12);
+  transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.4s ease;
+}
+.testimonial:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 24px 50px -20px rgba(31, 42, 31, 0.18);
+}
+/* While there is only one review, it shouldn't sit in the left column of a three-up
+   grid. Spanning every column and capping the width centres it; the rule stops
+   applying by itself as soon as a second review is added. */
+.testimonial:only-child {
+  grid-column: 1 / -1;
+  max-width: 560px;
+  margin: 0 auto;
+}
+.testimonial-stars {
+  font-size: 11px; letter-spacing: 0.3em;
+  color: var(--gold);
+  margin-bottom: 22px;
+  line-height: 1;
+}
+.testimonial-quote {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 19px; line-height: 1.7;
+  color: var(--forest-deep);
+  /* Cards stretch to the tallest in the row, so growing the quote drops every
+     attribution onto a common baseline no matter how uneven the copy is. */
+  flex-grow: 1;
+}
+/* Quote marks live in CSS so the copy stays clean to edit */
+.testimonial-quote::before { content: '“'; color: var(--gold); }
+.testimonial-quote::after { content: '”'; color: var(--gold); }
+.testimonial-attr {
+  margin-top: 26px; padding-top: 20px;
+  border-top: 1px solid rgba(45, 59, 45, 0.2);
+}
+.testimonial-name {
+  display: block;
+  font-family: 'Playfair Display', serif;
+  font-weight: 500; font-size: 18px;
+  color: var(--forest-deep);
+  line-height: 1.2;
+}
+.testimonial-detail {
+  display: block;
+  margin-top: 8px;
+  /* Not every review arrives with a date and venue attached. An empty span still
+     holds its line, so one card missing that detail doesn't drop its hairline and
+     name 24px below the rest of the row. */
+  min-height: 1.6em;
+  font-size: 10px; letter-spacing: 0.25em;
+  text-transform: uppercase; color: var(--forest-soft);
+}
+@media (max-width: 900px) {
+  .testimonials-header { margin-bottom: 60px; }
+  .testimonial-grid { grid-template-columns: 1fr; gap: 30px; max-width: 480px; margin: 0 auto; }
+}
+@media (max-width: 600px) {
+  .testimonial { padding: 34px 28px 28px; }
+  .testimonial-quote { font-size: 18px; }
 }
 
 /* ========== FOOTER ========== */
