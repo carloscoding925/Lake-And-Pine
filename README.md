@@ -62,7 +62,7 @@ cd web
 npx wrangler dev
 ```
 
-`open web/public/index.html` also works for quick layout and copy tweaks, but serve over HTTP when testing the film players or the lightbox — they talk to Vimeo across origins, which behaves differently from `file://`.
+`open web/public/index.html` or `open web/public/reviews/index.html` also works for quick layout and copy tweaks, but serve over HTTP when testing the film players or the lightbox — they talk to Vimeo across origins, which behaves differently from `file://`.
 
 ## Deployment
 
@@ -165,9 +165,12 @@ The same fix, and the reasoning behind it, is in the sibling Mountain Pine Media
 
 ## Review form
 
-`/reviews` is a standalone page (`public/reviews/index.html`) carrying a form that emails the
-submission to `weddings@lakeandpinecollective.com`. It exists so reviews arrive in a shape that
-can go straight onto the site.
+`/reviews` is a standalone page (`public/reviews/index.html`) carrying a form that posts to
+`/api/review` in [`worker.js`](web/worker.js), which emails the submission to
+`weddings@lakeandpinecollective.com` **via [Resend](https://resend.com)** — the API key lives in
+Worker secrets as `RESEND_API_KEY` (see [Deployment](#deployment)), never in the repo. The reply-to
+is set to the submitter, so replying in the inbox reaches the couple. It exists so reviews arrive
+in a shape that can go straight onto the site.
 
 **The fields mirror the testimonial card exactly** — rating, quote, name, and the date/venue line.
 The wedding date is a `month` input, so it yields `2026-04` and the Worker renders it as
@@ -179,6 +182,9 @@ A few decisions worth keeping:
 
 - **Consent is a checkbox and deliberately not required.** Forced consent isn't consent. The email
   states plainly whether it was given, and the pasteable snippet is labelled accordingly.
+- **Its stylesheet and icon paths are relative (`../styles.css`), not root-relative.** A leading
+  slash resolves to the filesystem root under `file://`, so the page opens unstyled when you
+  double-click it — the same quick-tweak workflow the homepage supports.
 - **The page is `noindex` and stays out of `sitemap.xml`.** A submission form has nothing to offer
   a search result and would only compete with the homepage.
 - **The honeypot field is positioned off-screen rather than `display:none`**, which the cruder bots
