@@ -1,6 +1,6 @@
 # Lake & Pine Collective
 
-Static marketing site for **Lake & Pine Collective**, a wedding photo and film collective based in the Reno-Tahoe area. The site is a single-page portfolio with sections for the team's story, approach, photo and film work, packages, and contact details. Enquiries go through a `mailto:` link rather than a form, so there's no backend to run.
+Static marketing site for **Lake & Pine Collective**, a wedding photo and film collective based in the Reno-Tahoe area. The site is a single-page portfolio with sections for the team's story, approach, photo and film work, packages, and contact details. Enquiries go through a `mailto:` link rather than a form. The one piece of server-side code is a small Worker backing the review form at `/reviews` (see [Review form](#review-form)).
 
 Live at [lakeandpinecollective.com](https://lakeandpinecollective.com).
 
@@ -11,7 +11,8 @@ The site is intentionally simple — no build step, no framework — so it stays
 - **HTML / CSS / vanilla JS** — single `index.html`, single `styles.css`, and one inline `<script>` covering the sticky-nav scroll state, the mobile hamburger toggle, reveal-on-scroll animations via `IntersectionObserver`, the film carousel, and the film lightbox.
 - **Google Fonts** — Playfair Display, Cormorant Garamond, and Inter, loaded via `<link rel="preconnect">` for fast first paint.
 - **Vimeo** — highlight films are embedded via Vimeo's iframe player rather than self-hosted, so we get adaptive-bitrate streaming, a polished player, and no Cloudflare bandwidth cost for video (see [Films](#films)).
-- **Cloudflare Workers** — deployment target, using Workers static assets. Configured via [`wrangler.jsonc`](web/wrangler.jsonc) with `assets.directory: "."` so the `web/` folder is served as the site root.
+- **Cloudflare Workers** — deployment target, using Workers static assets. Configured via [`wrangler.jsonc`](web/wrangler.jsonc) with `assets.directory: "./public"`, so `web/public/` is the site root and `web/worker.js` sits outside it and is never itself servable.
+- **Resend** — transactional email API the review Worker posts to. The API key lives in Worker secrets, never in the repo.
 - **ImageMagick** — local CLI tool used to resize and recompress portfolio photos before deploy (see [Image workflow](#image-workflow)).
 
 ## Project structure
@@ -19,50 +20,69 @@ The site is intentionally simple — no build step, no framework — so it stays
 ```
 Lake-And-Pine/
 ├── assets/                    # Original full-resolution photos (NOT deployed — kept for re-processing)
-├── web/                       # Everything in here is what gets deployed
-│   ├── index.html
-│   ├── styles.css
+├── web/
 │   ├── wrangler.jsonc         # Cloudflare deploy config
-│   ├── favicon.ico            # Browser tab icon (multi-size 16/32/48)
-│   ├── apple-touch-icon.png   # iOS / iMessage icon (180×180)
-│   ├── og-image.png           # Open Graph link preview (1200×1200)
-│   ├── robots.txt             # Allows all crawlers, points at the sitemap
-│   ├── sitemap.xml            # Single-URL sitemap (update lastmod on content changes)
-│   └── optimized-assets/      # Web-ready portfolio images and team portraits
+│   ├── worker.js              # Review form endpoint — NOT served, sits outside public/
+│   └── public/                # Everything in here is what gets served
+│       ├── index.html
+│       ├── styles.css
+│       ├── reviews/
+│       │   └── index.html     # /reviews — review submission form (noindex)
+│       ├── favicon.ico        # Browser tab icon (multi-size 16/32/48)
+│       ├── apple-touch-icon.png   # iOS / iMessage icon (180×180)
+│       ├── og-image.png       # Open Graph link preview (1200×1200)
+│       ├── robots.txt         # Allows all crawlers, points at the sitemap
+│       ├── sitemap.xml        # Single-URL sitemap (update lastmod on content changes)
+│       └── optimized-assets/  # Web-ready portfolio images and team portraits
 └── README.md
 ```
 
-The split between `assets/` (project root) and `web/optimized-assets/` is deliberate: only files inside `web/` are served by Cloudflare, so the high-resolution originals never ship to the public site but stay available locally for re-processing.
+The split between `assets/` (project root) and `web/public/optimized-assets/` is deliberate: only files inside `web/public/` are served by Cloudflare, so the high-resolution originals never ship to the public site but stay available locally for re-processing.
+
+`worker.js` sits beside `public/` rather than in it for the same reason — anything inside the assets directory is a public URL.
 
 ## Local development
 
-Serve the `web/` folder with any static server:
+Serve the `web/public/` folder with any static server:
 
 ```bash
-cd web
+cd web/public
 python3 -m http.server 8000
 # then visit http://localhost:8000
 ```
 
-For a closer-to-production preview that mirrors the Cloudflare environment, run wrangler from inside `web/` so it picks up `wrangler.jsonc`:
+This serves the pages but not the Worker, so submitting the review form will fail — that path
+needs `wrangler dev` below.
+
+For a closer-to-production preview that mirrors the Cloudflare environment — and the only way
+to exercise the review endpoint — run wrangler from inside `web/` so it picks up `wrangler.jsonc`:
 
 ```bash
 cd web
 npx wrangler dev
 ```
 
-`open web/index.html` also works for quick layout and copy tweaks, but serve over HTTP when testing the film players or the lightbox — they talk to Vimeo across origins, which behaves differently from `file://`.
+`open web/public/index.html` also works for quick layout and copy tweaks, but serve over HTTP when testing the film players or the lightbox — they talk to Vimeo across origins, which behaves differently from `file://`.
 
 ## Deployment
 
 Pushes to the `main` branch trigger an automatic build and deploy of the `web/` directory to Cloudflare.
+
+The review Worker needs one secret set once per environment, which never lives in the repo:
+
+```bash
+cd web
+npx wrangler secret put RESEND_API_KEY
+```
+
+`REVIEW_TO` and `REVIEW_FROM` are optional overrides; without them the Worker sends to `weddings@lakeandpinecollective.com` from `reviews@lakeandpinecollective.com`.
 
 ## Image workflow
 
 Source photos from the camera are typically 5–10 MB each — far larger than what the web needs. Before adding new photos to the portfolio:
 
 1. Drop the originals into the project-root `assets/` folder (kept out of the deploy).
-2. Resize and recompress with ImageMagick into `web/optimized-assets/`:
+2. Resize and recompress with ImageMagick into `web/public/optimized-assets/`:
 
    ```bash
    cd assets
@@ -74,13 +94,13 @@ Source photos from the camera are typically 5–10 MB each — far larger than w
        -interlace Plane \
        -sampling-factor 4:2:0 \
        -quality 82 \
-       "../web/optimized-assets/$f"
+       "../web/public/optimized-assets/$f"
    done
    ```
 
    Settings: max 1600px on the long edge (still crisp on retina), JPEG quality 82, EXIF stripped, progressive encoding so images render top-to-bottom as they download.
 
-3. Reference the new file from `index.html` using a path like `optimized-assets/your-photo.jpg`.
+3. Reference the new file from `public/index.html` using a path like `optimized-assets/your-photo.jpg`.
 
 This pipeline reduced the photo grid payload from ~36 MB → ~1.4 MB (a 96% reduction) with no visible quality loss.
 
@@ -142,6 +162,48 @@ The lightbox has the same problem by a different route: `autoplay=1` on a freshl
 Playing muted is the browser's designed fallback, so neither path can be fully verified on desktop — desktop grants unmuted autoplay and never enters the failing state. Confirm on a real handset.
 
 The same fix, and the reasoning behind it, is in the sibling Mountain Pine Media repo — where portrait films made the dead zone worse.
+
+## Review form
+
+`/reviews` is a standalone page (`public/reviews/index.html`) carrying a form that emails the
+submission to `weddings@lakeandpinecollective.com`. It exists so reviews arrive in a shape that
+can go straight onto the site.
+
+**The fields mirror the testimonial card exactly** — rating, quote, name, and the date/venue line.
+The wedding date is a `month` input, so it yields `2026-04` and the Worker renders it as
+`April 2026`, which is the form the card wants. Adding a review should be a paste, not a retyping
+job, and the notification email carries a ready-made `<figure class="testimonial">` block to make
+that literal.
+
+A few decisions worth keeping:
+
+- **Consent is a checkbox and deliberately not required.** Forced consent isn't consent. The email
+  states plainly whether it was given, and the pasteable snippet is labelled accordingly.
+- **The page is `noindex` and stays out of `sitemap.xml`.** A submission form has nothing to offer
+  a search result and would only compete with the homepage.
+- **The honeypot field is positioned off-screen rather than `display:none`**, which the cruder bots
+  check for. A submission that fills it gets a `200` and is silently dropped — telling a bot it was
+  caught only helps it.
+- **The form works without JavaScript.** It posts natively to `/api/review`; the Worker answers a
+  form-encoded request with a 303 back to `/reviews/?sent=1` and JSON to everything else, and the
+  page reads those parameters on load. With JS the submission resolves in place instead.
+- **`.review-form[hidden]` needs its own rule.** `display: flex` beats the user-agent's
+  `[hidden] { display: none }`, so without it the filled-in form stays on screen behind the
+  success state.
+- **The star rating keeps radios in natural DOM order** and fills them with `:has()`, so keyboard
+  and screen-reader order match what's on screen. The reversed-sibling trick usually used for this
+  gets that backwards.
+- **Star and consent labels are scoped `.review-form .star` / `.review-form .consent`.** They are
+  `<label>` elements, so an unscoped class selector loses to `.review-form label` and inherits the
+  letterspaced micro-caps meant for field names.
+
+Note that this collects testimonials for this site. It is not a Google review and builds nothing in
+Google's local pack — that still needs a Google Business Profile. If a follow-up ever asks happy
+submitters to repost to Google, send the same link to everyone: filtering by rating first is review
+gating, which Google prohibits.
+
+Not yet wired: Cloudflare Turnstile. The honeypot handles casual bots; Turnstile is the next step
+if real spam arrives.
 
 ## SEO & link previews
 

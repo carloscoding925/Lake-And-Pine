@@ -1,1 +1,4 @@
 .DS_Store
+
+# Local wrangler dev state (recreated by `wrangler dev`)
+.wrangler/

@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Leave a Review · Lake &amp; Pine Collective</title>
+<meta name="description" content="Share your experience with Lake & Pine Collective.">
+<!-- A submission form has nothing to offer a search result, and an indexed copy would
+     only compete with the homepage. Deliberately kept out of the index and the sitemap. -->
+<meta name="robots" content="noindex, follow">
+<link rel="canonical" href="https://lakeandpinecollective.com/reviews">
+
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body class="page-reviews">
+
+<header class="page-bar">
+  <div class="container page-bar-inner">
+    <a href="/" class="nav-brand">
+      <svg viewBox="0 0 220 180" xmlns="http://www.w3.org/2000/svg">
+        <path d="M 10 140 L 70 50 L 125 140 Z" fill="#2D3B2D" opacity="0.4"/>
+        <path d="M 95 140 L 160 35 L 215 140 Z" fill="#2D3B2D" opacity="0.6"/>
+        <path d="M 50 140 L 115 20 L 180 140 Z" fill="#2D3B2D"/>
+        <g transform="translate(115, 140)">
+          <rect x="-2.5" y="-10" width="5" height="14" fill="#B08A3E"/>
+          <path d="M 0 -70 L -8 -52 L -5 -52 L -13 -34 L -9 -34 L -18 -14 L -12 -14 L -21 6 L 21 6 L 12 -14 L 18 -14 L 9 -34 L 13 -34 L 5 -52 L 8 -52 Z" fill="#B08A3E"/>
+        </g>
+      </svg>
+      LAKE &amp; PINE
+    </a>
+    <a href="/" class="page-bar-back">← Back to the site</a>
+  </div>
+</header>
+
+<section class="review-page">
+  <div class="container review-shell">
+
+    <div class="review-head">
+      <div class="section-eyebrow">· Kind Words ·</div>
+      <h1 class="section-title">Leave us <span class="italic">a review.</span></h1>
+      <p class="section-intro">
+        If we photographed your wedding, we'd love to hear how it went. It takes a minute, and it genuinely helps couples who are still deciding.
+      </p>
+    </div>
+
+    <form class="review-form" id="reviewForm" action="/api/review" method="post" novalidate>
+
+      <!-- Honeypot. Positioned off-screen rather than display:none, which the cruder
+           bots check for. Real people never see it; anything that fills it is discarded. -->
+      <div class="hp" aria-hidden="true">
+        <label for="website">Website</label>
+        <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+      </div>
+
+      <div class="field">
+        <label for="name">Your name</label>
+        <input type="text" id="name" name="name" autocomplete="name" required>
+      </div>
+
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" autocomplete="email" required>
+        <p class="hint">So we can say thank you. Never published.</p>
+      </div>
+
+      <fieldset class="field rating-field">
+        <legend>How was your experience?</legend>
+        <div class="rating">
+          <label class="star">
+            <input type="radio" name="rating" value="1" required>
+            <span class="star-glyph" aria-hidden="true">★</span>
+            <span class="visually-hidden">1 star</span>
+          </label>
+          <label class="star">
+            <input type="radio" name="rating" value="2">
+            <span class="star-glyph" aria-hidden="true">★</span>
+            <span class="visually-hidden">2 stars</span>
+          </label>
+          <label class="star">
+            <input type="radio" name="rating" value="3">
+            <span class="star-glyph" aria-hidden="true">★</span>
+            <span class="visually-hidden">3 stars</span>
+          </label>
+          <label class="star">
+            <input type="radio" name="rating" value="4">
+            <span class="star-glyph" aria-hidden="true">★</span>
+            <span class="visually-hidden">4 stars</span>
+          </label>
+          <label class="star">
+            <input type="radio" name="rating" value="5">
+            <span class="star-glyph" aria-hidden="true">★</span>
+            <span class="visually-hidden">5 stars</span>
+          </label>
+        </div>
+      </fieldset>
+
+      <div class="field">
+        <label for="review">Your review</label>
+        <textarea id="review" name="review" rows="6" required></textarea>
+        <p class="hint">A few sentences is perfect.</p>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="date">Wedding date</label>
+          <input type="month" id="date" name="date">
+        </div>
+        <div class="field">
+          <label for="venue">Venue or town</label>
+          <input type="text" id="venue" name="venue" placeholder="North Tahoe">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="credit">Display name <span class="optional">optional</span></label>
+        <input type="text" id="credit" name="credit" placeholder="Catherine R.">
+        <p class="hint">How you'd like to appear on the site. We use a first name and last initial unless you tell us otherwise.</p>
+      </div>
+
+      <label class="consent">
+        <input type="checkbox" name="consent" value="yes">
+        <span>Lake &amp; Pine can publish this review on their website.</span>
+      </label>
+
+      <button type="submit" class="review-submit">Send Review</button>
+      <p class="form-status" id="formStatus" role="status" aria-live="polite"></p>
+
+    </form>
+
+    <div class="review-thanks" id="thanks" tabindex="-1" hidden>
+      <div class="section-eyebrow">· Thank You ·</div>
+      <h2 class="section-title">That means <span class="italic">a lot.</span></h2>
+      <p class="section-intro">
+        Your review is on its way to the team. We read every one.
+      </p>
+      <a href="/" class="contact-cta">Back to the site</a>
+    </div>
+
+  </div>
+</section>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <svg viewBox="0 0 220 180" xmlns="http://www.w3.org/2000/svg">
+        <path d="M 10 140 L 70 50 L 125 140 Z" fill="#F5EFE2" opacity="0.5"/>
+        <path d="M 95 140 L 160 35 L 215 140 Z" fill="#F5EFE2" opacity="0.7"/>
+        <path d="M 50 140 L 115 20 L 180 140 Z" fill="#F5EFE2"/>
+        <g transform="translate(115, 140)">
+          <rect x="-2.5" y="-10" width="5" height="14" fill="#B08A3E"/>
+          <path d="M 0 -70 L -8 -52 L -5 -52 L -13 -34 L -9 -34 L -18 -14 L -12 -14 L -21 6 L 21 6 L 12 -14 L 18 -14 L 9 -34 L 13 -34 L 5 -52 L 8 -52 Z" fill="#B08A3E"/>
+        </g>
+      </svg>
+      LAKE &amp; PINE COLLECTIVE
+    </div>
+    <div class="footer-tag">Photo &amp; Film, made together.</div>
+    <div class="footer-meta">© 2026 · All Rights Reserved</div>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    const form = document.getElementById('reviewForm');
+    const statusEl = document.getElementById('formStatus');
+    const thanks = document.getElementById('thanks');
+    const submit = form.querySelector('.review-submit');
+
+    function showThanks() {
+      // The original heading goes too, or the page shows two titles at once
+      form.hidden = true;
+      document.querySelector('.review-head').hidden = true;
+      statusEl.textContent = '';
+      thanks.hidden = false;
+    }
+
+    // Without JS the form posts natively and the Worker redirects back here, so the
+    // landing states have to be readable from the URL rather than from memory.
+    const params = new URLSearchParams(location.search);
+    if (params.has('sent')) {
+      showThanks();
+    } else if (params.has('error')) {
+      statusEl.className = 'form-status is-error';
+      statusEl.textContent = 'That didn\u2019t send. Please email weddings@lakeandpinecollective.com and we\u2019ll sort it out.';
+    }
+
+    // The form posts on its own without this handler; the fetch path exists so a
+    // submission can resolve in place rather than throwing the page away.
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!form.reportValidity()) return;
+
+      submit.disabled = true;
+      statusEl.className = 'form-status is-pending';
+      statusEl.textContent = 'Sending…';
+
+      try {
+        const res = await fetch(form.action, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(Object.fromEntries(new FormData(form)))
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        showThanks();
+        thanks.focus();
+      } catch (err) {
+        submit.disabled = false;
+        statusEl.className = 'form-status is-error';
+        statusEl.textContent = 'That didn’t send. Please email weddings@lakeandpinecollective.com and we’ll sort it out.';
+      }
+    });
+  })();
+</script>
+
+</body>
+</html>
