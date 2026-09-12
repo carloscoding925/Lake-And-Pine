@@ -83,13 +83,15 @@ async function handleReview(request, env, url) {
   const date = str(data.date).slice(0, 20);
   const consent = str(data.consent) === 'yes';
 
-  const missing = [];
-  if (!name) missing.push('name');
-  if (!email || !email.includes('@')) missing.push('email');
-  if (!review) missing.push('review');
-  if (!Number.isInteger(rating) || rating < 1 || rating > 5) missing.push('rating');
-  if (missing.length) {
-    return json({ error: `Missing or invalid: ${missing.join(', ')}` }, 400);
+  // The rating is the only required field. Everything else is optional by design — a
+  // bare five stars is still worth having, and asking for less gets more of them. The
+  // email template carries the fallbacks for whatever didn't arrive.
+  const invalid = [];
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) invalid.push('rating');
+  // Not required, but if they typed one it should be usable — it becomes reply_to.
+  if (email && !email.includes('@')) invalid.push('email');
+  if (invalid.length) {
+    return json({ error: `Missing or invalid: ${invalid.join(', ')}` }, 400);
   }
 
   // 4. Turnstile. Last, because it is the only check that costs a round trip — no point
@@ -121,7 +123,9 @@ async function handleReview(request, env, url) {
       from,
       to: [to],
       // So hitting reply in the inbox goes to the couple, not to the Worker's sender.
-      reply_to: email,
+      // Omitted entirely when no address was given — Resend rejects an empty reply_to,
+      // which would turn "they skipped an optional field" into a failed submission.
+      ...(email ? { reply_to: email } : {}),
       ...mail
     })
   });

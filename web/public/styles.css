@@ -1194,11 +1194,18 @@ footer {
 /* Star rating. Radios in natural order so keyboard and screen-reader order match the
    visual order; :has() fills a star when it is the checked one or any later star is. */
 .rating-field legend { margin-bottom: 12px; }
-.rating { display: flex; gap: 6px; }
+/* fit-content, not the default block-level stretch: as a full-width flex row the
+   container carried ~340px of dead zone to the right of the fifth star, all of it
+   live for :hover. The negative margin offsets the padding added to .star below,
+   keeping the first glyph aligned with the labels above. */
+.rating { display: flex; width: fit-content; margin-left: -3px; }
 /* Scoped with .review-form throughout: these are <label> elements, so a bare .star
    would lose to .review-form label and inherit the micro-caps field styling. */
 .review-form .star {
   margin: 0;
+  /* Padding rather than a gap on the container, so the five hover targets are
+     contiguous. A gap is dead space, and sweeping across one dropped the preview. */
+  padding: 0 3px;
   cursor: pointer;
   line-height: 1;
   color: rgba(45, 59, 45, 0.22);
@@ -1209,9 +1216,14 @@ footer {
 .review-form .star-glyph { font-size: 30px; transition: color 0.15s ease; }
 .review-form .star:has(input:checked),
 .review-form .star:has(~ .star input:checked) { color: var(--gold); }
-.review-form .rating:hover .star { color: rgba(45, 59, 45, 0.22); }
-.review-form .rating:hover .star:hover,
-.review-form .rating:hover .star:has(~ .star:hover) { color: var(--gold-soft); }
+/* Gated on a star actually being hovered, not on the row. `:hover` on the container
+   fired wherever the pointer was inside it, including where no star could answer with
+   a preview — and it outranks `.star:has(input:checked)` (0,4,0 vs 0,3,1) while losing
+   to `.star:has(~ .star input:checked)` (0,4,1). So it greyed the checked star and left
+   the ones before it gold: five selected read as four. */
+.review-form .rating:has(.star:hover) .star { color: rgba(45, 59, 45, 0.22); }
+.review-form .rating:has(.star:hover) .star:hover,
+.review-form .rating:has(.star:hover) .star:has(~ .star:hover) { color: var(--gold-soft); }
 .review-form .star:has(input:focus-visible) { outline: 2px solid var(--gold); outline-offset: 3px; }
 
 /* Same reason as .star — must outrank .review-form label. Consent has to read as a
@@ -1257,6 +1269,23 @@ footer {
 .review-thanks[hidden] { display: none; }
 .review-thanks .section-intro { margin: 0 auto 10px; }
 .review-thanks:focus { outline: none; }
+
+.field-error {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic; font-size: 16px; line-height: 1.5;
+  color: #8C3B2E;
+  margin-top: 12px;
+}
+.field-error:empty { display: none; }
+.required-tag {
+  letter-spacing: 0.18em;
+  color: var(--gold); opacity: 0.9;
+  font-weight: 500;
+}
+/* Outranks `.review-form .star` (0,2,0) at (0,3,0), so the unfilled stars carry the
+   warning colour until one is picked. */
+.rating-field.is-missing legend { color: #8C3B2E; }
+.rating-field.is-missing .star { color: rgba(140, 59, 46, 0.45); }
 
 /* Turnstile renders a fixed-size iframe of its own; this only places it. The reserved
    height stops the submit button jumping down when the widget finishes loading. */

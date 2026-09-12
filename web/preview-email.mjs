@@ -37,6 +37,18 @@ const CASES = {
     date: '',
     consent: false
   },
+  // The floor: the rating is the only required field, so this is the least an arriving
+  // review can be. Every fallback in the template is on show at once.
+  'rating-only': {
+    name: '',
+    email: '',
+    review: '',
+    rating: 4,
+    venue: '',
+    credit: '',
+    date: '',
+    consent: false
+  },
   // Flagged, not blocked. The Worker sends this like any other review and the email
   // carries the banner, so the preview has to show that path or nobody ever sees it.
   'link-spam': {

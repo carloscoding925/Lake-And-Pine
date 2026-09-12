@@ -76,19 +76,19 @@
 
       <div class="field">
         <label for="name">Your name</label>
-        <input type="text" id="name" name="name" autocomplete="name" required>
+        <input type="text" id="name" name="name" autocomplete="name">
       </div>
 
       <div class="field">
         <label for="email">Email</label>
-        <input type="email" id="email" name="email" autocomplete="email" required>
+        <input type="email" id="email" name="email" autocomplete="email">
       </div>
 
       <fieldset class="field rating-field">
-        <legend>How was your experience?</legend>
-        <div class="rating">
+        <legend id="ratingLegend">How was your experience? <span class="required-tag">required</span></legend>
+        <div class="rating" role="radiogroup" aria-labelledby="ratingLegend" aria-required="true">
           <label class="star">
-            <input type="radio" name="rating" value="1" required>
+            <input type="radio" name="rating" value="1">
             <span class="star-glyph" aria-hidden="true">★</span>
             <span class="visually-hidden">1 star</span>
           </label>
@@ -113,11 +113,14 @@
             <span class="visually-hidden">5 stars</span>
           </label>
         </div>
+        <!-- role="alert" announces the text the moment it's filled in; it stays empty
+             (and hidden by :empty) until then. -->
+        <p class="field-error" id="ratingError" role="alert"></p>
       </fieldset>
 
       <div class="field">
         <label for="review">Your review</label>
-        <textarea id="review" name="review" rows="6" required></textarea>
+        <textarea id="review" name="review" rows="6"></textarea>
         <p class="hint">A few sentences is perfect.</p>
       </div>
 
@@ -199,6 +202,19 @@
     const statusEl = document.getElementById('formStatus');
     const thanks = document.getElementById('thanks');
     const submit = form.querySelector('.review-submit');
+    const ratingField = form.querySelector('.rating-field');
+    const ratingError = document.getElementById('ratingError');
+
+    const rating = () => form.querySelector('input[name="rating"]:checked');
+
+    // Clear the warning the moment they act on it, rather than making them submit again
+    // to find out they've fixed it.
+    form.addEventListener('change', (e) => {
+      if (e.target.name === 'rating') {
+        ratingField.classList.remove('is-missing');
+        ratingError.textContent = '';
+      }
+    });
 
     function showThanks() {
       // The original heading goes too, or the page shows two titles at once
@@ -223,6 +239,23 @@
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
+
+      // The only required field, and the browser can't police it for us: the star inputs
+      // are visually hidden, so reportValidity() fails silently on a control it can't
+      // focus a bubble to. Checked before reportValidity so that never happens.
+      if (!rating()) {
+        ratingField.classList.add('is-missing');
+        ratingError.textContent =
+          'Please pick a star rating — that part we do need. Everything else is up to you.';
+        statusEl.className = 'form-status';
+        statusEl.textContent = '';
+        ratingField.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        form.querySelector('input[name="rating"]').focus();
+        return;
+      }
+
+      // Still worth running: nothing is required any more, but a malformed address in
+      // the email field should be caught before it becomes an unreplyable review.
       if (!form.reportValidity()) return;
 
       // The widget usually resolves before anyone finishes typing, but it can still be

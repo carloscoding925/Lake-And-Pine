@@ -92,6 +92,14 @@ RESEND_API_KEY=re_...
 Without it the endpoint returns `500 {"error":"Email is not configured."}`; with a bad key it
 returns `502`. Those two responses are the quickest way to tell which half is misconfigured.
 
+**Resend's free plan sends 100 emails a day and 3,000 a month.** Going over is a hard stop, not an
+overage charge: the API returns `429` with `daily_quota_exceeded` (or `monthly_quota_exceeded`) and
+refuses the send until the quota resets. There is no automatic upgrade and nothing to be billed for.
+The Worker turns any Resend failure into a `502`, and **the submission is not queued or retried — it
+is lost**, so the couple sees the "email us instead" message. At a hundred reviews a day that is not
+a realistic worry here; it matters only as the reason the `502` branch logs Resend's response body,
+which names the error so a quota stop is distinguishable from a bad key.
+
 The Worker needs a second secret, `TURNSTILE_SECRET_KEY`, set exactly the same way in both places.
 Locally `.dev.vars` uses Cloudflare's always-passing dummy secret, so `wrangler dev` needs no real
 credential — see [Spam filtering](#spam-filtering), which also covers the sitekey that must be
@@ -195,7 +203,25 @@ Worker secrets as `RESEND_API_KEY` (see [Deployment](#deployment)), never in the
 is set to the submitter, so replying in the inbox reaches the couple. It exists so reviews arrive
 in a shape that can go straight onto the site.
 
-**The fields mirror the testimonial card exactly** — rating, quote, name, and the date/venue line.
+**The star rating is the only required field.** Everything else — name, email, review text, date,
+venue, display name, consent — is optional, on both the page and the Worker. A bare five stars is
+still worth having, and asking for less gets more of them. Two consequences to know about:
+
+- **A review can arrive with no way to reply to it.** `reply_to` is omitted entirely when no address
+  was given, because Resend rejects an empty one and that would turn a skipped optional field into a
+  failed submission.
+- **The email template carries a fallback for every field.** Missing name reads as *Anonymous*,
+  missing body as *"Rating only — they left stars but no written review."*, and the footer says
+  plainly when there's nobody to reply to. `preview-email.mjs` has a `rating-only` case that shows
+  all of them at once.
+
+Validating the rating is the page's job, not the browser's: the star inputs are visually hidden, so
+`reportValidity()` can't anchor a bubble to a control it cannot focus and fails *silently*. The
+submit handler checks the rating first and writes into a `role="alert"` slot directly under the
+stars, so the message lands where the fix is rather than down beside the button. It clears as soon
+as a star is picked.
+
+**The fields otherwise mirror the testimonial card exactly** — rating, quote, name, and the date/venue line.
 The wedding date is a `month` input, so it yields `2026-04` and the Worker renders it as
 `April 2026`, which is the form the card wants, so a review arrives ready to drop into the grid
 rather than needing reshaping.
@@ -223,6 +249,14 @@ A few decisions worth keeping:
 - **The star rating keeps radios in natural DOM order** and fills them with `:has()`, so keyboard
   and screen-reader order match what's on screen. The reversed-sibling trick usually used for this
   gets that backwards.
+- **The hover preview is gated on `.rating:has(.star:hover)`, not on `.rating:hover`.** Gating on the
+  row meant the grey-out fired wherever the pointer was inside the container, including the ~340px
+  of empty space to its right, where no star could answer with a preview. Worse, it outranks
+  `.star:has(input:checked)` (0,4,0 against 0,3,1) but loses to `.star:has(~ .star input:checked)`
+  (0,4,1) — so it greyed the *checked* star while leaving the ones before it gold, and five selected
+  read as four. The container is `width: fit-content` for the same reason, and the stars carry
+  horizontal padding instead of the row carrying a `gap`, so the five hover targets are contiguous
+  and sweeping across them can't drop the preview.
 - **Star and consent labels are scoped `.review-form .star` / `.review-form .consent`.** They are
   `<label>` elements, so an unscoped class selector loses to `.review-form label` and inherits the
   letterspaced micro-caps meant for field names.
@@ -303,7 +337,7 @@ together and the client picks one.
 
 ```bash
 cd web
-node preview-email.mjs --open     # renders four cases to web/.email-preview/ (gitignored)
+node preview-email.mjs --open     # renders five cases to web/.email-preview/ (gitignored)
 ```
 
 Email is not the web, and three constraints shape the HTML:

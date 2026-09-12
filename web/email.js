@@ -32,17 +32,22 @@ const C = {
   flagBg: '#F6E4DF'
 };
 
+const ANON = 'Anonymous';
+const NO_REVIEW = 'Rating only — they left stars but no written review.';
+
 const SERIF = "Georgia, 'Times New Roman', serif";
 const SANS = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif";
 
 export function renderEmail(f) {
-  const display = f.credit || f.name;
+  // The rating is the only field the form requires, so everything here has to read
+  // sensibly when it's the only thing that arrived.
+  const display = f.credit || f.name || ANON;
   const detail = [formatDate(f.date), f.venue].filter(Boolean).join(' · ');
   const suspect = hasLink(f.review);
   const ctx = { display, detail, suspect };
 
   return {
-    subject: `${suspect ? '[possible spam] ' : ''}New review — ${f.name} (${f.rating}/5)`,
+    subject: `${suspect ? '[possible spam] ' : ''}New review — ${f.name || ANON} (${f.rating}/5)`,
     text: text(f, ctx),
     html: html(f, ctx)
   };
@@ -69,10 +74,10 @@ function text(f, { display, detail, suspect }) {
     ...(suspect ? ['!! This review contains a link, which real ones rarely do. Read it before publishing.', ''] : []),
     `${stars}  (${f.rating}/5)`,
     '',
-    f.review,
+    f.review || NO_REVIEW,
     '',
     '—'.repeat(48),
-    `From:     ${f.name} <${f.email}>`,
+    `From:     ${fromLine(f) || '(not given)'}`,
     `Credit:   ${display}`,
     `Wedding:  ${detail || '(not given)'}`,
     `Publish:  ${f.consent ? 'YES — they ticked the consent box' : 'NO — do not put this on the site'}`,
@@ -112,16 +117,16 @@ function html(f, { display, detail, suspect }) {
 
     <tr><td style="background:${C.creamWarm};padding:30px 32px;border-bottom:1px solid ${C.rule};">
       <div style="font-size:20px;line-height:1;letter-spacing:3px;">${stars}</div>
-      <div style="font-family:${SERIF};font-style:italic;font-size:18px;line-height:1.6;color:${C.forestDeep};padding-top:18px;">
-        &ldquo;${escapeHtml(f.review)}&rdquo;
+      <div style="font-family:${SERIF};font-style:italic;font-size:18px;line-height:1.6;color:${C.forestDeep};padding-top:18px;${f.review ? '' : `opacity:0.55;`}">
+        ${f.review ? `&ldquo;${escapeHtml(f.review)}&rdquo;` : escapeHtml(NO_REVIEW)}
       </div>
     </td></tr>
 
     <tr><td style="padding:26px 32px 30px;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-        ${row('From', `${escapeHtml(f.name)} &lt;${escapeHtml(f.email)}&gt;`)}
+        ${row('From', escapeHtml(fromLine(f)) || notGiven())}
         ${row('Credit', escapeHtml(display))}
-        ${row('Wedding', escapeHtml(detail) || '<span style="opacity:0.5;">not given</span>')}
+        ${row('Wedding', escapeHtml(detail) || notGiven())}
         ${row('Publish', consentBadge(f.consent), true)}
       </table>
     </td></tr>
@@ -129,7 +134,7 @@ function html(f, { display, detail, suspect }) {
 
     <tr><td style="background:${C.creamWarm};padding:16px 32px;border-top:1px solid ${C.rule};">
       <div style="font-family:${SANS};font-size:11px;line-height:1.5;color:${C.forestSoft};">
-        Sent by the review form at lakeandpinecollective.com/reviews · reply to reach ${escapeHtml(f.name)}
+        Sent by the review form at lakeandpinecollective.com/reviews${f.email ? ` · reply to reach ${escapeHtml(f.name || 'them')}` : ' · no email given, so there is nobody to reply to'}
       </div>
     </td></tr>
 
@@ -139,6 +144,18 @@ function html(f, { display, detail, suspect }) {
 </table>
 </body>
 </html>`;
+}
+
+/** "Name <email>", or whichever half turned up, or "" if neither did. */
+function fromLine(f) {
+  const name = String(f.name || '').trim();
+  const email = String(f.email || '').trim();
+  if (name && email) return `${name} <${email}>`;
+  return name || email;
+}
+
+function notGiven() {
+  return '<span style="opacity:0.5;">not given</span>';
 }
 
 function row(label, value, last) {
