@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Leave a Review · Lake &amp; Pine Collective</title>
+<meta name="description" content="Share your experience with Lake & Pine Collective.">
+<!-- A submission form has nothing to offer a search result, and an indexed copy would
+     only compete with the homepage. Deliberately kept out of the index and the sitemap. -->
+<meta name="robots" content="noindex, follow">
+<link rel="canonical" href="https://lakeandpinecollective.com/reviews">
+
+<link rel="icon" href="../favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<!-- Relative, not root-relative: "/styles.css" resolves to the filesystem root
+     under file://, so the page opens unstyled when you just double-click it. -->
+<link rel="stylesheet" href="../styles.css">
+
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<!-- The form can't be submitted without JavaScript any more: Turnstile is a scripted
+     challenge, and a no-JS path that skipped it would just be the door bots use. -->
+<noscript><style>.review-form { display: none; }</style></noscript>
+</head>
+<body class="page-reviews">
+
+<header class="page-bar">
+  <div class="container page-bar-inner">
+    <a href="/" class="nav-brand">
+      <svg viewBox="0 0 220 180" xmlns="http://www.w3.org/2000/svg">
+        <path d="M 10 140 L 70 50 L 125 140 Z" fill="#2D3B2D" opacity="0.4"/>
+        <path d="M 95 140 L 160 35 L 215 140 Z" fill="#2D3B2D" opacity="0.6"/>
+        <path d="M 50 140 L 115 20 L 180 140 Z" fill="#2D3B2D"/>
+        <g transform="translate(115, 140)">
+          <rect x="-2.5" y="-10" width="5" height="14" fill="#B08A3E"/>
+          <path d="M 0 -70 L -8 -52 L -5 -52 L -13 -34 L -9 -34 L -18 -14 L -12 -14 L -21 6 L 21 6 L 12 -14 L 18 -14 L 9 -34 L 13 -34 L 5 -52 L 8 -52 Z" fill="#B08A3E"/>
+        </g>
+      </svg>
+      LAKE &amp; PINE
+    </a>
+    <a href="/" class="page-bar-back">← Back to the site</a>
+  </div>
+</header>
+
+<section class="review-page">
+  <div class="container review-shell">
+
+    <div class="review-head">
+      <div class="section-eyebrow">· Kind Words ·</div>
+      <h1 class="section-title">Leave us <span class="italic">a review.</span></h1>
+      <p class="section-intro">
+        If we photographed your wedding, we'd love to hear how it went. It takes a minute, and it genuinely helps couples who are still deciding.
+      </p>
+    </div>
+
+    <noscript>
+      <p class="form-noscript">
+        This form needs JavaScript switched on, to check the submission isn't automated.
+        If you'd rather not, email your review straight to
+        <a href="mailto:weddings@lakeandpinecollective.com">weddings@lakeandpinecollective.com</a>
+        and we'll add it by hand.
+      </p>
+    </noscript>
+
+    <form class="review-form" id="reviewForm" action="/api/review" method="post" novalidate>
+
+      <!-- Honeypot. Positioned off-screen rather than display:none, which the cruder
+           bots check for. Real people never see it; anything that fills it is discarded. -->
+      <div class="hp" aria-hidden="true">
+        <label for="website">Website</label>
+        <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+      </div>
+
+      <div class="field">
+        <label for="name">Your name</label>
+        <input type="text" id="name" name="name" autocomplete="name">
+      </div>
+
+      <div class="field" id="emailField">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" autocomplete="email">
+        <p class="field-error" id="emailError" role="alert"></p>
+      </div>
+
+      <fieldset class="field rating-field">
+        <legend id="ratingLegend">How was your experience? <span class="required-tag">required</span></legend>
+        <div class="rating" role="radiogroup" aria-labelledby="ratingLegend" aria-required="true">
+          <label class="star">
+            <input type="radio" name="rating" value="1">
+            <span class="star-glyph" aria-hidden="true">★</span>
+            <span class="visually-hidden">1 star</span>
+          </label>
+          <label class="star">
+            <input type="radio" name="rating" value="2">
+            <span class="star-glyph" aria-hidden="true">★</span>
+            <span class="visually-hidden">2 stars</span>
+          </label>
+          <label class="star">
+            <input type="radio" name="rating" value="3">
+            <span class="star-glyph" aria-hidden="true">★</span>
+            <span class="visually-hidden">3 stars</span>
+          </label>
+          <label class="star">
+            <input type="radio" name="rating" value="4">
+            <span class="star-glyph" aria-hidden="true">★</span>
+            <span class="visually-hidden">4 stars</span>
+          </label>
+          <label class="star">
+            <input type="radio" name="rating" value="5">
+            <span class="star-glyph" aria-hidden="true">★</span>
+            <span class="visually-hidden">5 stars</span>
+          </label>
+        </div>
+        <!-- role="alert" announces the text the moment it's filled in; it stays empty
+             (and hidden by :empty) until then. -->
+        <p class="field-error" id="ratingError" role="alert"></p>
+      </fieldset>
+
+      <div class="field">
+        <label for="review">Your review</label>
+        <textarea id="review" name="review" rows="6"></textarea>
+        <p class="hint">A few sentences is perfect.</p>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="date">Wedding date</label>
+          <input type="month" id="date" name="date">
+        </div>
+        <div class="field">
+          <label for="venue">Venue or town</label>
+          <input type="text" id="venue" name="venue">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="credit">Display name <span class="optional">optional</span></label>
+        <input type="text" id="credit" name="credit">
+        <p class="hint">How you'd like to appear on the site. We use a first name and last initial unless you tell us otherwise.</p>
+      </div>
+
+      <label class="consent">
+        <input type="checkbox" name="consent" value="yes">
+        <span>Lake &amp; Pine can publish this review on their website.</span>
+      </label>
+
+      <!-- Cloudflare Turnstile. data-action must stay in step with TURNSTILE_ACTION in
+           worker.js — the Worker pins it at verify time, so changing one alone rejects
+           every submission.
+
+           ⚠ The sitekey below is Cloudflare's DUMMY TESTING KEY. It always passes, and
+           pairs with the dummy secret in web/.dev.vars so `wrangler dev` runs with no
+           real credentials. IT MUST BE SWAPPED FOR THE REAL SITEKEY BEFORE DEPLOY: a
+           live secret rejects dummy tokens, so leaving this here 403s every review. -->
+      <div class="cf-turnstile"
+           data-sitekey="1x00000000000000000000AA"
+           data-action="review"
+           data-theme="light"
+           data-refresh-expired="auto"></div>
+
+      <button type="submit" class="review-submit">Send Review</button>
+      <p class="form-status" id="formStatus" role="status" aria-live="polite"></p>
+
+    </form>
+
+    <div class="review-thanks" id="thanks" tabindex="-1" hidden>
+      <div class="section-eyebrow">· Thank You ·</div>
+      <h2 class="section-title">That means <span class="italic">a lot.</span></h2>
+      <p class="section-intro">
+        Your review is on its way to the team. We read every one.
+      </p>
+      <a href="/" class="contact-cta">Back to the site</a>
+    </div>
+
+  </div>
+</section>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <svg viewBox="0 0 220 180" xmlns="http://www.w3.org/2000/svg">
+        <path d="M 10 140 L 70 50 L 125 140 Z" fill="#F5EFE2" opacity="0.5"/>
+        <path d="M 95 140 L 160 35 L 215 140 Z" fill="#F5EFE2" opacity="0.7"/>
+        <path d="M 50 140 L 115 20 L 180 140 Z" fill="#F5EFE2"/>
+        <g transform="translate(115, 140)">
+          <rect x="-2.5" y="-10" width="5" height="14" fill="#B08A3E"/>
+          <path d="M 0 -70 L -8 -52 L -5 -52 L -13 -34 L -9 -34 L -18 -14 L -12 -14 L -21 6 L 21 6 L 12 -14 L 18 -14 L 9 -34 L 13 -34 L 5 -52 L 8 -52 Z" fill="#B08A3E"/>
+        </g>
+      </svg>
+      LAKE &amp; PINE COLLECTIVE
+    </div>
+    <div class="footer-tag">Photo &amp; Film, made together.</div>
+    <div class="footer-meta">© 2026 · All Rights Reserved</div>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    const form = document.getElementById('reviewForm');
+    const statusEl = document.getElementById('formStatus');
+    const thanks = document.getElementById('thanks');
+    const submit = form.querySelector('.review-submit');
+    const ratingField = form.querySelector('.rating-field');
+    const ratingError = document.getElementById('ratingError');
+    const emailInput = document.getElementById('email');
+    const emailField = document.getElementById('emailField');
+    const emailError = document.getElementById('emailError');
+
+    // Optional, so an empty box is fine. But a typo'd address is worse than none at
+    // all: it becomes the email's reply_to, so the review arrives looking replyable
+    // and silently isn't. checkValidity() rather than a hand-rolled regex — the input
+    // is type="email", so the browser already holds the rule. checkValidity doesn't
+    // raise the native bubble, which lets the message render in the page's own voice.
+    function emailProblem() {
+      return emailInput.value.trim() !== '' && !emailInput.checkValidity();
+    }
+
+    const rating = () => form.querySelector('input[name="rating"]:checked');
+
+    // Clear the warning the moment they act on it, rather than making them submit again
+    // to find out they've fixed it.
+    form.addEventListener('change', (e) => {
+      if (e.target.name === 'rating') {
+        ratingField.classList.remove('is-missing');
+        ratingError.textContent = '';
+      }
+    });
+
+    // On input, not on change: clears while they are still fixing it rather than
+    // making them leave the field to find out.
+    emailInput.addEventListener('input', () => {
+      if (!emailProblem()) {
+        emailField.classList.remove('is-invalid');
+        emailError.textContent = '';
+      }
+    });
+
+    function showThanks() {
+      // The original heading goes too, or the page shows two titles at once
+      form.hidden = true;
+      document.querySelector('.review-head').hidden = true;
+      statusEl.textContent = '';
+      thanks.hidden = false;
+    }
+
+    function fail(message) {
+      submit.disabled = false;
+      statusEl.className = 'form-status is-error';
+      statusEl.textContent = message;
+      // Turnstile tokens are single-use, so the one just spent is dead either way.
+      // Without this reset a second attempt fails on a stale token rather than on
+      // whatever actually went wrong the first time.
+      if (window.turnstile) window.turnstile.reset();
+    }
+
+    const GENERIC_ERROR =
+      'That didn\u2019t send. Please email weddings@lakeandpinecollective.com and we\u2019ll sort it out.';
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      // The only required field, and the browser can't police it for us: the star inputs
+      // are visually hidden, so reportValidity() fails silently on a control it can't
+      // focus a bubble to. Checked before reportValidity so that never happens.
+      if (!rating()) {
+        ratingField.classList.add('is-missing');
+        ratingError.textContent =
+          'Please pick a star rating — that part we do need. Everything else is up to you.';
+        statusEl.className = 'form-status';
+        statusEl.textContent = '';
+        ratingField.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        form.querySelector('input[name="rating"]').focus();
+        return;
+      }
+
+      if (emailProblem()) {
+        emailField.classList.add('is-invalid');
+        emailError.textContent =
+          'That address doesn\u2019t look quite right — check for a missing @, or leave it blank.';
+        emailInput.focus();
+        emailInput.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        return;
+      }
+      emailField.classList.remove('is-invalid');
+      emailError.textContent = '';
+
+      // Backstop for anything either check above missed.
+      if (!form.reportValidity()) return;
+
+      // The widget usually resolves before anyone finishes typing, but it can still be
+      // working on a slow connection. Posting without a token is a guaranteed 403, so
+      // say what's happening instead of blaming the submitter for it.
+      const token = form.querySelector('[name="cf-turnstile-response"]');
+      if (!token || !token.value) {
+        statusEl.className = 'form-status is-pending';
+        statusEl.textContent = 'Just a moment — still checking your browser. Try again in a second.';
+        return;
+      }
+
+      submit.disabled = true;
+      statusEl.className = 'form-status is-pending';
+      statusEl.textContent = 'Sending…';
+
+      let res;
+      try {
+        res = await fetch(form.action, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(Object.fromEntries(new FormData(form)))
+        });
+      } catch (err) {
+        fail(GENERIC_ERROR);
+        return;
+      }
+
+      if (res.ok) {
+        showThanks();
+        thanks.focus();
+        return;
+      }
+
+      // 403 and 429 are the two the Worker expects a person to be able to act on, so
+      // they get their own wording; everything else falls back to "email us instead".
+      let message = GENERIC_ERROR;
+      if (res.status === 403 || res.status === 429) {
+        try {
+          const body = await res.json();
+          if (body && body.error) message = body.error;
+        } catch (err) { /* keep the generic message */ }
+      }
+      fail(message);
+    });
+  })();
+</script>
+
+</body>
+</html>

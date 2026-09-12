@@ -1109,3 +1109,217 @@ footer {
               transform 0.9s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .reveal.visible { opacity: 1; transform: translateY(0); }
+
+/* ========== REVIEW FORM (/reviews) ==========
+   Lives in the shared stylesheet rather than its own file: a visitor who has seen the
+   homepage already holds styles.css, so /reviews costs them no extra CSS request. */
+.page-bar {
+  padding: 22px 0;
+  border-bottom: 1px solid rgba(45, 59, 45, 0.1);
+  background: var(--cream);
+}
+.page-bar-inner {
+  display: flex; align-items: center; justify-content: space-between; gap: 20px;
+}
+.page-bar-back {
+  font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--forest-soft); text-decoration: none; font-weight: 500;
+  transition: color 0.2s ease;
+}
+.page-bar-back:hover { color: var(--gold); }
+/* Scoped to this page so the homepage is untouched. Without it the success state is
+   short enough that the cream body shows below the dark footer. */
+.page-reviews { display: flex; flex-direction: column; min-height: 100vh; }
+.page-reviews .review-page { flex: 1 0 auto; }
+.review-page { background: var(--cream); padding: 80px 0 100px; }
+.review-shell { max-width: 680px; }
+.review-head { text-align: center; margin-bottom: 56px; }
+.review-head .section-title { margin-bottom: 22px; }
+.review-head .section-intro { margin: 0 auto; }
+
+/* display:flex beats the UA's [hidden]{display:none}, so the success state needs this
+   or the form stays on screen after a successful submit. */
+.review-form[hidden] { display: none; }
+.review-form {
+  display: flex; flex-direction: column; gap: 26px;
+  background: var(--cream-warm);
+  border: 1px solid rgba(45, 59, 45, 0.12);
+  padding: 44px 40px 40px;
+}
+.field { display: flex; flex-direction: column; border: 0; padding: 0; margin: 0; }
+.review-form label,
+.review-form legend {
+  font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase;
+  color: var(--forest-soft); font-weight: 500;
+  margin-bottom: 10px; padding: 0;
+}
+.optional {
+  letter-spacing: 0.18em;
+  color: var(--forest-soft); opacity: 0.65;
+  font-weight: 400;
+}
+.review-form input[type="text"],
+.review-form input[type="email"],
+.review-form input[type="month"],
+.review-form textarea {
+  width: 100%;
+  padding: 13px 15px;
+  font-family: 'Inter', sans-serif;
+  /* 16px exactly: iOS Safari zooms the viewport on focus for anything smaller. */
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--forest-deep);
+  background: var(--cream);
+  border: 1px solid rgba(45, 59, 45, 0.25);
+  border-radius: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.review-form textarea { resize: vertical; min-height: 130px; }
+.review-form input:focus,
+.review-form textarea:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(176, 138, 62, 0.16);
+}
+.hint {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic; font-size: 15px;
+  color: var(--forest-soft);
+  margin-top: 8px;
+}
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; }
+
+/* Star rating. Radios in natural order so keyboard and screen-reader order match the
+   visual order; :has() fills a star when it is the checked one or any later star is. */
+.rating-field legend { margin-bottom: 12px; }
+/* fit-content, not the default block-level stretch: as a full-width flex row the
+   container carried ~340px of dead zone to the right of the fifth star, all of it
+   live for :hover. The negative margin offsets the padding added to .star below,
+   keeping the first glyph aligned with the labels above. */
+.rating { display: flex; width: fit-content; margin-left: -3px; }
+/* Scoped with .review-form throughout: these are <label> elements, so a bare .star
+   would lose to .review-form label and inherit the micro-caps field styling. */
+.review-form .star {
+  margin: 0;
+  /* Padding rather than a gap on the container, so the five hover targets are
+     contiguous. A gap is dead space, and sweeping across one dropped the preview. */
+  padding: 0 3px;
+  cursor: pointer;
+  line-height: 1;
+  color: rgba(45, 59, 45, 0.22);
+  letter-spacing: normal;
+  text-transform: none;
+}
+.review-form .star input { position: absolute; opacity: 0; width: 0; height: 0; }
+.review-form .star-glyph { font-size: 30px; transition: color 0.15s ease; }
+.review-form .star:has(input:checked),
+.review-form .star:has(~ .star input:checked) { color: var(--gold); }
+/* Gated on a star actually being hovered, not on the row. `:hover` on the container
+   fired wherever the pointer was inside it, including where no star could answer with
+   a preview — and it outranks `.star:has(input:checked)` (0,4,0 vs 0,3,1) while losing
+   to `.star:has(~ .star input:checked)` (0,4,1). So it greyed the checked star and left
+   the ones before it gold: five selected read as four. */
+.review-form .rating:has(.star:hover) .star { color: rgba(45, 59, 45, 0.22); }
+.review-form .rating:has(.star:hover) .star:hover,
+.review-form .rating:has(.star:hover) .star:has(~ .star:hover) { color: var(--gold-soft); }
+.review-form .star:has(input:focus-visible) { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+/* Same reason as .star — must outrank .review-form label. Consent has to read as a
+   sentence, not as a field name, so it drops the micro-caps entirely. */
+.review-form .consent {
+  display: flex; align-items: flex-start; gap: 12px;
+  cursor: pointer;
+  font-size: 14px; letter-spacing: normal; text-transform: none;
+  color: var(--forest-deep); font-weight: 400;
+  line-height: 1.5;
+  margin-bottom: 0;
+}
+.review-form .consent input {
+  width: 17px; height: 17px;
+  margin: 1px 0 0;
+  accent-color: var(--gold);
+  flex-shrink: 0;
+}
+.review-submit {
+  align-self: flex-start;
+  margin-top: 6px;
+  padding: 17px 42px;
+  background: var(--gold);
+  color: var(--forest-deep);
+  font-family: 'Inter', sans-serif;
+  font-size: 12px; letter-spacing: 0.32em;
+  text-transform: uppercase; font-weight: 600;
+  border: 0; cursor: pointer;
+  transition: background 0.25s ease, letter-spacing 0.25s ease, opacity 0.25s ease;
+}
+.review-submit:hover:not(:disabled) { background: var(--forest-deep); color: var(--cream); letter-spacing: 0.36em; }
+.review-submit:disabled { opacity: 0.55; cursor: default; }
+.form-status {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic; font-size: 16px;
+  line-height: 1.5;
+}
+.form-status:empty { display: none; }
+.form-status.is-pending { color: var(--forest-soft); }
+.form-status.is-error { color: #8C3B2E; }
+
+.review-thanks { text-align: center; }
+.review-thanks[hidden] { display: none; }
+.review-thanks .section-intro { margin: 0 auto 10px; }
+.review-thanks:focus { outline: none; }
+
+.field-error {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic; font-size: 16px; line-height: 1.5;
+  color: #8C3B2E;
+  margin-top: 12px;
+}
+.field-error:empty { display: none; }
+/* Scoped under .review-form so it outranks the plain label rule (0,2,0 vs 0,2,0 would
+   tie and lose on order; .field.is-invalid adds the extra class). */
+.review-form .field.is-invalid label { color: #8C3B2E; }
+.review-form .field.is-invalid input { border-color: #8C3B2E; }
+.review-form .field.is-invalid input:focus {
+  border-color: #8C3B2E;
+  box-shadow: 0 0 0 3px rgba(140, 59, 46, 0.14);
+}
+.required-tag {
+  letter-spacing: 0.18em;
+  color: var(--gold); opacity: 0.9;
+  font-weight: 500;
+}
+/* Outranks `.review-form .star` (0,2,0) at (0,3,0), so the unfilled stars carry the
+   warning colour until one is picked. */
+.rating-field.is-missing legend { color: #8C3B2E; }
+.rating-field.is-missing .star { color: rgba(140, 59, 46, 0.45); }
+
+/* Turnstile renders a fixed-size iframe of its own; this only places it. The reserved
+   height stops the submit button jumping down when the widget finishes loading. */
+.review-form .cf-turnstile { min-height: 65px; margin-top: 2px; }
+
+.form-noscript {
+  background: var(--cream-warm);
+  border-left: 2px solid var(--gold);
+  padding: 20px 24px;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 17px; line-height: 1.6;
+  color: var(--forest-deep);
+}
+.form-noscript a { color: var(--forest-deep); }
+
+/* Off-screen rather than display:none — see the note on the field in reviews/index.html */
+.hp {
+  position: absolute;
+  left: -9999px;
+  width: 1px; height: 1px;
+  overflow: hidden;
+}
+@media (max-width: 600px) {
+  .review-page { padding: 56px 0 72px; }
+  .review-form { padding: 32px 24px 30px; gap: 22px; }
+  .field-row { grid-template-columns: 1fr; gap: 22px; }
+  .review-submit { align-self: stretch; text-align: center; padding: 17px 24px; }
+  .page-bar-back { font-size: 10px; letter-spacing: 0.16em; }
+}

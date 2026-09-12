@@ -1,6 +1,6 @@
 # Lake & Pine Collective
 
-Static marketing site for **Lake & Pine Collective**, a wedding photo and film collective based in the Reno-Tahoe area. The site is a single-page portfolio with sections for the team's story, approach, photo and film work, packages, and contact details. Enquiries go through a `mailto:` link rather than a form, so there's no backend to run.
+Static marketing site for **Lake & Pine Collective**, a wedding photo and film collective based in the Reno-Tahoe area. The site is a single-page portfolio with sections for the team's story, approach, photo and film work, packages, testimonials, and contact details. Enquiries go through a `mailto:` link rather than a form. The one piece of server-side code is a small Worker backing the review form at `/reviews` (see [Review form](#review-form)).
 
 Live at [lakeandpinecollective.com](https://lakeandpinecollective.com).
 
@@ -11,7 +11,9 @@ The site is intentionally simple — no build step, no framework — so it stays
 - **HTML / CSS / vanilla JS** — single `index.html`, single `styles.css`, and one inline `<script>` covering the sticky-nav scroll state, the mobile hamburger toggle, reveal-on-scroll animations via `IntersectionObserver`, the film carousel, and the film lightbox.
 - **Google Fonts** — Playfair Display, Cormorant Garamond, and Inter, loaded via `<link rel="preconnect">` for fast first paint.
 - **Vimeo** — highlight films are embedded via Vimeo's iframe player rather than self-hosted, so we get adaptive-bitrate streaming, a polished player, and no Cloudflare bandwidth cost for video (see [Films](#films)).
-- **Cloudflare Workers** — deployment target, using Workers static assets. Configured via [`wrangler.jsonc`](web/wrangler.jsonc) with `assets.directory: "."` so the `web/` folder is served as the site root.
+- **Cloudflare Workers** — deployment target, using Workers static assets. Configured via [`wrangler.jsonc`](web/wrangler.jsonc) with `assets.directory: "./public"`, so `web/public/` is the site root and `web/worker.js` sits outside it and is never itself servable.
+- **Resend** — transactional email API the review Worker posts to. The API key lives in Worker secrets, never in the repo.
+- **Cloudflare Turnstile** — CAPTCHA alternative guarding the review form, verified server-side in the Worker (see [Spam filtering](#spam-filtering)).
 - **ImageMagick** — local CLI tool used to resize and recompress portfolio photos before deploy (see [Image workflow](#image-workflow)).
 
 ## Project structure
@@ -19,95 +21,107 @@ The site is intentionally simple — no build step, no framework — so it stays
 ```
 Lake-And-Pine/
 ├── assets/                    # Original full-resolution photos (NOT deployed — kept for re-processing)
-├── web/                       # Everything in here is what gets deployed
-│   ├── index.html
-│   ├── styles.css
-│   ├── wrangler.jsonc         # Cloudflare deploy config
-│   ├── favicon.ico            # Browser tab icon (multi-size 16/32/48)
-│   ├── apple-touch-icon.png   # iOS / iMessage icon (180×180)
-│   ├── og-image.png           # Open Graph link preview (1200×1200)
-│   ├── robots.txt             # Allows all crawlers, points at the sitemap
-│   ├── sitemap.xml            # Single-URL sitemap (update lastmod on content changes)
-│   └── optimized-assets/      # Web-ready portfolio images and team portraits
+├── web/                          # Wrangler's root — nothing here is served except public/
+│   ├── wrangler.jsonc            # Cloudflare deploy config
+│   ├── worker.js                 # /api/review endpoint; falls through to assets
+│   ├── email.js                  # Notification email template (worker + preview share it)
+│   ├── preview-email.mjs         # Renders that email locally without sending
+│   └── public/                   # Everything in here is what gets served
+│       ├── index.html
+│       ├── styles.css
+│       ├── reviews/
+│       │   └── index.html        # /reviews — submission form (noindex, unlinked)
+│       ├── favicon.ico           # Browser tab icon (multi-size 16/32/48)
+│       ├── apple-touch-icon.png  # iOS / iMessage icon (180×180)
+│       ├── og-image.png          # Open Graph link preview (1200×1200)
+│       ├── robots.txt            # Allows all crawlers, points at the sitemap
+│       ├── sitemap.xml           # Single-URL sitemap (update lastmod on content changes)
+│       └── optimized-assets/     # Web-ready portfolio images and team portraits
 └── README.md
 ```
 
-The split between `assets/` (project root) and `web/optimized-assets/` is deliberate: only files inside `web/` are served by Cloudflare, so the high-resolution originals never ship to the public site but stay available locally for re-processing.
+The split between `assets/` (project root) and `web/public/optimized-assets/` is deliberate: only files inside `web/public/` are served by Cloudflare, so the high-resolution originals never ship to the public site but stay available locally for re-processing.
+
+`worker.js`, `email.js`, and `preview-email.mjs` sit beside `public/` rather than inside it for the same reason — anything in the assets directory becomes a public URL. Verified: `/worker.js` and `/email.js` both 404.
 
 ## Local development
 
-Serve the `web/` folder with any static server:
+Serve the `web/public/` folder with any static server:
 
 ```bash
-cd web
+cd web/public
 python3 -m http.server 8000
 # then visit http://localhost:8000
 ```
 
-For a closer-to-production preview that mirrors the Cloudflare environment, run wrangler from inside `web/` so it picks up `wrangler.jsonc`:
+This serves the pages but not the Worker, so submitting the review form will fail — that path
+needs `wrangler dev` below.
+
+For a closer-to-production preview that mirrors the Cloudflare environment — and the only way
+to exercise the review endpoint — run wrangler from inside `web/` so it picks up `wrangler.jsonc`:
 
 ```bash
 cd web
 npx wrangler dev
 ```
 
-`open web/index.html` also works for quick layout and copy tweaks, but serve over HTTP when testing the film players or the lightbox — they talk to Vimeo across origins, which behaves differently from `file://`.
+`open web/public/index.html` or `open web/public/reviews/index.html` also works for quick layout and copy tweaks, but serve over HTTP when testing the film players or the lightbox — they talk to Vimeo across origins, which behaves differently from `file://`.
 
 ## Deployment
 
 Pushes to the `main` branch trigger an automatic build and deploy of the `web/` directory to Cloudflare.
 
-## Image workflow
+The review Worker needs `RESEND_API_KEY`, and **production and local dev read it from two
+different places** — a repo-root `.env` supplies neither.
 
-Source photos from the camera are typically 5–10 MB each — far larger than what the web needs. Before adding new photos to the portfolio:
+For the deployed Worker, set it once. The command prompts for the value, so the key never reaches
+your shell history:
 
-1. Drop the originals into the project-root `assets/` folder (kept out of the deploy).
-2. Resize and recompress with ImageMagick into `web/optimized-assets/`:
+```bash
+cd web
+npx wrangler secret put RESEND_API_KEY
+```
 
-   ```bash
-   cd assets
-   for f in your-photos.jpg; do
-     magick "$f" \
-       -auto-orient \
-       -resize '1600x1600>' \
-       -strip \
-       -interlace Plane \
-       -sampling-factor 4:2:0 \
-       -quality 82 \
-       "../web/optimized-assets/$f"
-   done
-   ```
+For `wrangler dev`, put it in `web/.dev.vars` (gitignored, alongside `wrangler.jsonc` — not the
+repo root):
 
-   Settings: max 1600px on the long edge (still crisp on retina), JPEG quality 82, EXIF stripped, progressive encoding so images render top-to-bottom as they download.
+```
+RESEND_API_KEY=re_...
+```
 
-3. Reference the new file from `index.html` using a path like `optimized-assets/your-photo.jpg`.
+Without it the endpoint returns `500 {"error":"Email is not configured."}`; with a bad key it
+returns `502`. Those two responses are the quickest way to tell which half is misconfigured.
 
-This pipeline reduced the photo grid payload from ~36 MB → ~1.4 MB (a 96% reduction) with no visible quality loss.
+**Resend's free plan sends 100 emails a day and 3,000 a month.** Going over is a hard stop, not an
+overage charge: the API returns `429` with `daily_quota_exceeded` (or `monthly_quota_exceeded`) and
+refuses the send until the quota resets. There is no automatic upgrade and nothing to be billed for.
+The Worker turns any Resend failure into a `502`, and **the submission is not queued or retried — it
+is lost**, so the couple sees the "email us instead" message. At a hundred reviews a day that is not
+a realistic worry here; it matters only as the reason the `502` branch logs Resend's response body,
+which names the error so a quota stop is distinguishable from a bad key.
 
-### The team portraits, and why they left the HTML
+The Worker needs a second secret, `TURNSTILE_SECRET_KEY`, set exactly the same way in both places.
+Locally `.dev.vars` uses Cloudflare's always-passing dummy secret, so `wrangler dev` needs no real
+credential — see [Spam filtering](#spam-filtering), which also covers the sitekey that must be
+swapped in the page before deploy.
 
-The three portraits used to be inlined into `index.html` as base64 `data:` URIs, which made the document ~329 KB rather than ~42 KB. They are now ordinary files — `optimized-assets/team-chava.jpg`, `-isma`, `-juan` — carrying `loading="lazy"` because the team section is below the fold.
+`REVIEW_TO` and `REVIEW_FROM` are optional overrides; without them the Worker sends to
+`weddings@lakeandpinecollective.com` from `reviews@lakeandpinecollective.com`.
+`ALLOWED_ORIGINS` and `TURNSTILE_EXPECT_HOSTNAME` are optional too, and only needed if the site is
+ever served from a hostname the Worker doesn't see as its own.
 
-They were **extracted byte-for-byte rather than re-exported**: at 900×1125 and quality 80 they already sit under the pipeline's 1600px ceiling, so `-resize '1600x1600>'` is a no-op and a re-encode at q82 only costs a generation. Measured, the whole pipeline moved the three files by 23 bytes.
+**Set the production secret after a deploy, not before.** Cloudflare refuses `wrangler secret put`
+when the Worker's latest version isn't the active deployment:
 
-Total transfer barely moved either, which is the part worth knowing before optimising anything else here — Brotli recovers almost all of base64's 33% inflation, so the two layouts are within ~2.5 KB of each other:
+```
+✘ [ERROR] Secret edit failed. You attempted to modify a secret, but the latest version of your
+  Worker isn't currently deployed.
+```
 
-| | HTML (brotli) | images | total |
-|---|---|---|---|
-| inlined | 221.9 KB | — | 221.9 KB |
-| as files | 8.8 KB | 215.4 KB | 224.4 KB |
-
-The win is in *when* those bytes move, not how many:
-
-- **The document is 96% smaller.** Everything after the team section in the source — the three Vimeo iframes, pricing, contact, and the inline `<script>` that wires the carousel and lightbox — used to sit behind 217 KB of portrait data in the byte stream.
-- **A visitor who bounces at the hero never fetches them.**
-- **They revalidate independently.** Cloudflare serves this site `public, max-age=0, must-revalidate`, so an unchanged file comes back as a 304 with no body. Inlined, the portraits shared the HTML's ETag — so every copy edit re-sent all 215 KB of them to every returning visitor. On a hand-edited site that deploys on push, that was the recurring cost.
-
-No layout shift comes with the lazy loading: `.team-portrait-wrap` has `aspect-ratio: 4/5`, so the space is reserved whether or not the image has landed.
-
-**Don't downscale them.** The card is 373px wide at desktop, but the grid goes single-column with `max-width:480px` below 900px — the *phone* gets the bigger slot. At 900px the source covers 2.4× at desktop and 1.9× on a mobile retina screen. A 750px export saves 51 KB and drops mobile to 1.6×.
-
-Note that `assets/` holds no higher-resolution originals for these three — the 900px files are the only copies, so they are the masters as well as the exports.
+So the order is: merge to `main`, let the build deploy, *then* set the secret. Two ways around it if
+you need the key in place first — the Cloudflare dashboard (**Workers & Pages → lakeandpine →
+Settings → Variables and Secrets**) isn't subject to the check, and `wrangler versions secret put`
+works but creates a version that still needs deploying, so it adds a step rather than removing one.
 
 ## Films
 
@@ -143,6 +157,269 @@ Playing muted is the browser's designed fallback, so neither path can be fully v
 
 The same fix, and the reasoning behind it, is in the sibling Mountain Pine Media repo — where portrait films made the dead zone worse.
 
+## Testimonials
+
+A single centred card sits between **The Investment** and **Let's Talk**, filled in by hand from
+reviews that arrive through [the review form](#review-form).
+
+Two things about where it sits are load-bearing:
+
+- **The background is `--cream-warm`, the same field as the team section.** Both sections are about
+  people, and the change of ground seals off the gold contact CTA rather than letting the eye run
+  straight into a third dark section before the footer. It also repeats a rhythm the page already
+  establishes: About → Team → Approach runs cream → cream-warm → forest-deep, and
+  Investment → Testimonials → Let's Talk now does the same.
+- **`.contact` is `padding: 130px 0 60px`.** The short bottom exists because Let's Talk runs into
+  the dark footer as one continuous field. Insert a section between them and that has to go back to
+  `130px 0`, or the CTA sits cramped against the new boundary — and back again if it's removed.
+  This has already been changed twice; check it after any reordering.
+
+Two rules handle the shape of real review data rather than whatever is on the page today:
+
+- **`.testimonial:only-child` centres a lone review** by spanning every grid column and capping its
+  width. It stops applying by itself the moment a second review is added and the grid returns to
+  three-up, so there's nothing to undo later.
+- **`.testimonial-detail` has `min-height: 1.6em`.** Not every review arrives with a date and venue
+  — Google reviews in particular usually don't. Cards stretch to the tallest in their row, so
+  without a reserved line, one card missing that detail drops its hairline and name 24px below the
+  rest. An empty `<span class="testimonial-detail"></span>` is deliberate markup here, not an
+  oversight.
+
+To add a review, copy an existing `<figure class="testimonial">` and swap the four values. Spell the
+stars' `aria-label` out in words ("Five out of five stars") — a screen reader would otherwise read
+the glyphs one at a time.
+
+**Not yet added: `Review` / `AggregateRating` JSON-LD.** Worth doing once there are three or four
+real reviews; a rating aggregated from a single one is thin and Google generally won't surface stars
+for it. Marking up reviews that aren't real and verifiable is a manual-action risk against the whole
+domain, so this waits for content rather than being stubbed out.
+
+## Review form
+
+`/reviews` is a standalone page (`public/reviews/index.html`) carrying a form that posts to
+`/api/review` in [`worker.js`](web/worker.js), which emails the submission to
+`weddings@lakeandpinecollective.com` **via [Resend](https://resend.com)** — the API key lives in
+Worker secrets as `RESEND_API_KEY` (see [Deployment](#deployment)), never in the repo. The reply-to
+is set to the submitter, so replying in the inbox reaches the couple. It exists so reviews arrive
+in a shape that can go straight onto the site.
+
+**The star rating is the only required field.** Everything else — name, email, review text, date,
+venue, display name, consent — is optional, on both the page and the Worker. A bare five stars is
+still worth having, and asking for less gets more of them. Two consequences to know about:
+
+- **A review can arrive with no way to reply to it.** `reply_to` is omitted entirely when no address
+  was given, because Resend rejects an empty one and that would turn a skipped optional field into a
+  failed submission.
+- **The email template carries a fallback for every field.** Missing name reads as *Anonymous*,
+  missing body as *"Rating only — they left stars but no written review."*, and the footer says
+  plainly when there's nobody to reply to. `preview-email.mjs` has a `rating-only` case that shows
+  all of them at once.
+
+Validating the rating is the page's job, not the browser's: the star inputs are visually hidden, so
+`reportValidity()` can't anchor a bubble to a control it cannot focus and fails *silently*. The
+submit handler checks the rating first and writes into a `role="alert"` slot directly under the
+stars, so the message lands where the fix is rather than down beside the button. It clears as soon
+as a star is picked.
+
+**The email field gets the same treatment when it has a value in it**, through `checkValidity()` on
+the `type="email"` input rather than a hand-rolled pattern — the browser already holds that rule, and
+`checkValidity()` doesn't raise the native bubble, so the message can render beside the field in the
+page's own voice instead of in Chrome's. An empty box stays perfectly fine. This matters more than
+it looks: a typo'd address becomes the notification email's `reply_to`, so the review arrives looking
+replyable and silently isn't. The Worker repeats the check and answers `400`, because validation in
+the page is a courtesy to the person filling it in, not a guarantee to us.
+
+**The fields otherwise mirror the testimonial card exactly** — rating, quote, name, and the date/venue line.
+The wedding date is a `month` input, so it yields `2026-04` and the Worker renders it as
+`April 2026`, which is the form the card wants, so a review arrives ready to drop into the grid
+rather than needing reshaping.
+
+A few decisions worth keeping:
+
+- **Consent is a checkbox and deliberately not required.** Forced consent isn't consent. The email
+  states plainly whether it was given, with a badge that reads either way.
+- **Its stylesheet and icon paths are relative (`../styles.css`), not root-relative.** A leading
+  slash resolves to the filesystem root under `file://`, so the page opens unstyled when you
+  double-click it — the same quick-tweak workflow the homepage supports.
+- **The page is `noindex` and stays out of `sitemap.xml`.** A submission form has nothing to offer
+  a search result and would only compete with the homepage.
+- **Nothing on the site links to it, on purpose.** The path is handed out directly — texted or
+  emailed to couples after their gallery lands — so only actual clients ever reach it. Together with
+  `noindex` that makes the page effectively unlisted. A footer link would undo that, so don't add
+  one without deciding to.
+- **The form requires JavaScript**, which was a deliberate reversal. It used to post natively with a
+  303 fallback so it worked without JS; Turnstile is a scripted challenge, and a no-JS path that
+  skipped it would have been precisely the door bots use. `<noscript>` hides the form and offers the
+  `mailto:` instead. See [Spam filtering](#spam-filtering).
+- **`.review-form[hidden]` needs its own rule.** `display: flex` beats the user-agent's
+  `[hidden] { display: none }`, so without it the filled-in form stays on screen behind the
+  success state.
+- **The star rating keeps radios in natural DOM order** and fills them with `:has()`, so keyboard
+  and screen-reader order match what's on screen. The reversed-sibling trick usually used for this
+  gets that backwards.
+- **The hover preview is gated on `.rating:has(.star:hover)`, not on `.rating:hover`.** Gating on the
+  row meant the grey-out fired wherever the pointer was inside the container, including the ~340px
+  of empty space to its right, where no star could answer with a preview. Worse, it outranks
+  `.star:has(input:checked)` (0,4,0 against 0,3,1) but loses to `.star:has(~ .star input:checked)`
+  (0,4,1) — so it greyed the *checked* star while leaving the ones before it gold, and five selected
+  read as four. The container is `width: fit-content` for the same reason, and the stars carry
+  horizontal padding instead of the row carrying a `gap`, so the five hover targets are contiguous
+  and sweeping across them can't drop the preview.
+- **Star and consent labels are scoped `.review-form .star` / `.review-form .consent`.** They are
+  `<label>` elements, so an unscoped class selector loses to `.review-form label` and inherits the
+  letterspaced micro-caps meant for field names.
+
+Note that this collects testimonials for this site. It is not a Google review and builds nothing in
+Google's local pack — that still needs a Google Business Profile. If a follow-up ever asks happy
+submitters to repost to Google, send the same link to everyone: filtering by rating first is review
+gating, which Google prohibits.
+
+### Spam filtering
+
+Four checks stand in front of the send, ordered cheapest first so a flood costs as little as
+possible. Only the last spends a network round trip.
+
+| # | Check | Rejects with |
+|---|---|---|
+| 1 | **Same-origin.** `Origin` must equal the Worker's own origin. Trivially forgeable by anything that isn't a browser — that's the point, it costs nothing and drops drive-by scripted posts. `ALLOWED_ORIGINS` extends it if the page is ever served from another hostname. | `403` |
+| 2 | **Rate limit.** Native Workers binding, 5 requests per 60s per IP. | `429` |
+| 3 | **Honeypot.** An off-screen `website` field — positioned off-screen rather than `display:none`, which the cruder bots check for. Filling it returns `200` and silently drops the submission; telling a bot it was caught only helps it. | `200` (lie) |
+| 4 | **[Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/).** Verified server-side against `siteverify`. | `403` |
+
+The rate limiter's `period` accepts only 10 or 60 seconds, so it is a flood stop rather than a daily
+cap. A real daily quota would need KV or a Durable Object, which this endpoint's volume doesn't
+justify. Counters are shared per `namespace_id` across the whole account — keep `1001` unique to
+this Worker.
+
+**Turnstile pins `action` and `hostname`, not just `success`.** A bare `success` check accepts any
+valid token, including one farmed from a widget on someone else's page and replayed here. `action`
+must match `TURNSTILE_ACTION` in `worker.js` and `data-action` on the widget — **change one and you
+must change the other**, or every submission is rejected.
+
+**Tokens are single-use and expire after 300 seconds.** The widget refreshes itself
+(`data-refresh-expired="auto"`), and the page calls `turnstile.reset()` after a failed submit so a
+retry doesn't spend an already-spent token. The page also refuses to post at all until a token
+exists, because a submission without one is a guaranteed `403` and the submitter isn't at fault.
+
+**A missing `TURNSTILE_SECRET_KEY` fails closed** with a `500`, like a missing Resend key. Spam
+protection that switches itself off when its configuration goes missing is the one failure mode
+worth refusing outright.
+
+#### The testing keys, and the trap in them
+
+Cloudflare publishes dummy keys, and `web/.dev.vars` uses the always-passing secret so
+`wrangler dev` runs with no real credentials:
+
+| | Sitekey (public, in the HTML) | Secret (in `.dev.vars`) |
+|---|---|---|
+| always passes | `1x00000000000000000000AA` | `1x0000000000000000000000000000000AA` |
+| always blocks | `2x00000000000000000000AB` | `2x0000000000000000000000000000000AA` |
+
+Dummy secrets answer with `hostname: "example.com"` and **no `action` field at all**, so pinning
+either would reject every local submission. `worker.js` therefore skips those two checks when the
+configured secret is one of the documented testing values — decided from the secret rather than from
+the response, so what comes back over the network can't influence it. This costs nothing in
+production, where a testing secret would already pass everything regardless.
+
+> ⚠️ **The sitekey in `reviews/index.html` is currently the dummy one and must be swapped before
+> deploy.** A live secret rejects dummy tokens, so leaving it in place makes every real submission
+> fail with a `403`. Create the widget under **Turnstile** in the Cloudflare dashboard, paste its
+> sitekey into the page, and set the matching secret with `wrangler secret put TURNSTILE_SECRET_KEY`
+> — subject to the same ordering rule as the Resend key (see [Deployment](#deployment)).
+>
+> Cloudflare stamps the dummy widget with a red *"For testing only. If seen, report to site owner"*
+> bar, so this is visible on the page rather than silent — but it fails at submit time either way.
+
+Reviews containing a link are **flagged, not blocked**: the subject gets a `[possible spam]` prefix
+and the email carries a banner. Genuine wedding reviews essentially never carry a URL and SEO spam
+essentially always does, but dropping a real review costs more than an odd email, so the judgement
+stays with a human.
+
+### The notification email
+
+The template lives in [`web/email.js`](web/email.js), imported by both `worker.js` and the preview
+script so a preview can never drift from what actually sends. Resend gets `text` and `html`
+together and the client picks one.
+
+**Preview it without sending anything:**
+
+```bash
+cd web
+node preview-email.mjs --open     # renders five cases to web/.email-preview/ (gitignored)
+```
+
+Email is not the web, and three constraints shape the HTML:
+
+- **Google Fonts do not load.** Gmail strips the `<link>` and Outlook ignores it, so Playfair and
+  Cormorant are unavailable. The serif stack falls back to Georgia, which is on essentially every
+  client and carries a similar high-contrast feel.
+- **Styles are inline and the layout is tables.** Several clients drop `<style>` blocks, and desktop
+  Outlook renders with Word's engine, which has no usable flexbox or grid.
+- **The inner table needs `table-layout: fixed`.** Tables size to their content, so a single long
+  unbroken line stretches the email well past its 600px max-width. `overflow-x: auto` does nothing
+  in an email client.
+
+**The email is written for the photographers, not for whoever maintains the site.** It reports a
+review in readable form and stops there — it deliberately carries no markup to copy, since the
+people receiving it have no use for that. Everything needed to build a testimonial card is in the
+body anyway: rating, quote, credit, and the date/venue line.
+
+Review text is still HTML-escaped into the body — `preview-email.mjs` includes a case with a
+literal `<em>` and an ampersand in the review so that stays covered, and a `link-spam` case so the
+flagged-review banner is visible in the preview rather than only in production.
+
+## Image workflow
+
+Source photos from the camera are typically 5–10 MB each — far larger than what the web needs. Before adding new photos to the portfolio:
+
+1. Drop the originals into the project-root `assets/` folder (kept out of the deploy).
+2. Resize and recompress with ImageMagick into `web/public/optimized-assets/`:
+
+   ```bash
+   cd assets
+   for f in your-photos.jpg; do
+     magick "$f" \
+       -auto-orient \
+       -resize '1600x1600>' \
+       -strip \
+       -interlace Plane \
+       -sampling-factor 4:2:0 \
+       -quality 82 \
+       "../web/public/optimized-assets/$f"
+   done
+   ```
+
+   Settings: max 1600px on the long edge (still crisp on retina), JPEG quality 82, EXIF stripped, progressive encoding so images render top-to-bottom as they download.
+
+3. Reference the new file from `public/index.html` using a path like `optimized-assets/your-photo.jpg`.
+
+This pipeline reduced the photo grid payload from ~36 MB → ~1.4 MB (a 96% reduction) with no visible quality loss.
+
+### The team portraits, and why they left the HTML
+
+The three portraits used to be inlined into `index.html` as base64 `data:` URIs, which made the document ~329 KB rather than ~42 KB. They are now ordinary files — `optimized-assets/team-chava.jpg`, `-isma`, `-juan` — carrying `loading="lazy"` because the team section is below the fold.
+
+They were **extracted byte-for-byte rather than re-exported**: at 900×1125 and quality 80 they already sit under the pipeline's 1600px ceiling, so `-resize '1600x1600>'` is a no-op and a re-encode at q82 only costs a generation. Measured, the whole pipeline moved the three files by 23 bytes.
+
+Total transfer barely moved either, which is the part worth knowing before optimising anything else here — Brotli recovers almost all of base64's 33% inflation, so the two layouts are within ~2.5 KB of each other:
+
+| | HTML (brotli) | images | total |
+|---|---|---|---|
+| inlined | 221.9 KB | — | 221.9 KB |
+| as files | 8.8 KB | 215.4 KB | 224.4 KB |
+
+The win is in *when* those bytes move, not how many:
+
+- **The document is 96% smaller.** Everything after the team section in the source — the three Vimeo iframes, pricing, contact, and the inline `<script>` that wires the carousel and lightbox — used to sit behind 217 KB of portrait data in the byte stream.
+- **A visitor who bounces at the hero never fetches them.**
+- **They revalidate independently.** Cloudflare serves this site `public, max-age=0, must-revalidate`, so an unchanged file comes back as a 304 with no body. Inlined, the portraits shared the HTML's ETag — so every copy edit re-sent all 215 KB of them to every returning visitor. On a hand-edited site that deploys on push, that was the recurring cost.
+
+No layout shift comes with the lazy loading: `.team-portrait-wrap` has `aspect-ratio: 4/5`, so the space is reserved whether or not the image has landed.
+
+**Don't downscale them.** The card is 373px wide at desktop, but the grid goes single-column with `max-width:480px` below 900px — the *phone* gets the bigger slot. At 900px the source covers 2.4× at desktop and 1.9× on a mobile retina screen. A 750px export saves 51 KB and drops mobile to 1.6×.
+
+Note that `assets/` holds no higher-resolution originals for these three — the 900px files are the only copies, so they are the masters as well as the exports.
+
 ## SEO & link previews
 
 The `<head>` includes Open Graph and Twitter Card meta tags pointing at `og-image.png` (the company logo, 1200×1200), so the site renders a proper preview card when shared via iMessage, Slack, Twitter, Discord, etc.
@@ -153,4 +430,12 @@ Alongside those:
 - **Canonical link** and a meta description.
 - **`robots.txt`** allowing all crawlers and pointing at **`sitemap.xml`**. The sitemap has a single URL and a hardcoded `lastmod` — bump it when the content changes meaningfully.
 
-Note that the biggest remaining wins for search visibility are off-site: a Google Business Profile and Search Console verification.
+The sitemap is single-URL by design. [`/reviews`](#review-form) is `noindex` and stays out of it —
+it's a submission form handed directly to clients, not a page meant to be found.
+
+Still open: **`Review` / `AggregateRating` JSON-LD** once there are enough real reviews to justify
+it (see [Testimonials](#testimonials)). That's what puts star ratings under a search result.
+
+Note that the biggest remaining wins for search visibility are off-site: a Google Business Profile
+and Search Console verification. The review form feeds this site's testimonials; it builds nothing
+in Google's local pack, which is a separate job.
