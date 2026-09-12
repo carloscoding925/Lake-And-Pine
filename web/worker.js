@@ -6,6 +6,8 @@
  * changed nothing about how the rest of the site is served.
  */
 
+import { renderEmail } from './email.js';
+
 const LIMITS = { name: 120, email: 200, review: 5000, venue: 120, credit: 120 };
 
 export default {
@@ -70,6 +72,10 @@ async function handleReview(request, env) {
   const to = env.REVIEW_TO || 'weddings@lakeandpinecollective.com';
   const from = env.REVIEW_FROM || 'Lake & Pine Reviews <reviews@lakeandpinecollective.com>';
 
+  // Resend takes text and html together; clients pick one. The text part keeps the
+  // pasteable snippet selectable anywhere the HTML doesn't render.
+  const mail = renderEmail({ name, email, review, rating, venue, credit, date, consent });
+
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -81,8 +87,7 @@ async function handleReview(request, env) {
       to: [to],
       // So hitting reply in the inbox goes to the couple, not to the Worker's sender.
       reply_to: email,
-      subject: `New review — ${name} (${rating}/5)`,
-      text: body({ name, email, review, rating, venue, credit, date, consent })
+      ...mail
     })
   });
 
@@ -92,66 +97,6 @@ async function handleReview(request, env) {
   }
 
   return reply(isForm, { ok: true }, 200);
-}
-
-/**
- * Plain text on purpose. The snippet at the bottom is the finished testimonial markup,
- * so adding a review to the site is a copy and paste rather than a retyping job.
- */
-function body({ name, email, review, rating, venue, credit, date, consent }) {
-  const display = credit || name;
-  const detail = [formatDate(date), venue].filter(Boolean).join(' · ');
-  const stars = '★'.repeat(rating) + '☆'.repeat(5 - rating);
-
-  return [
-    `${stars}  (${rating}/5)`,
-    '',
-    review,
-    '',
-    '—'.repeat(48),
-    `From:     ${name} <${email}>`,
-    `Credit:   ${display}`,
-    `Wedding:  ${detail || '(not given)'}`,
-    `Publish:  ${consent ? 'YES — they ticked the consent box' : 'NO — do not put this on the site'}`,
-    '—'.repeat(48),
-    '',
-    consent
-      ? 'Paste into the testimonial grid in public/index.html:'
-      : 'No consent given. The markup below is here only if they later say yes:',
-    '',
-    figure({ rating, review, display, detail })
-  ].join('\n');
-}
-
-function figure({ rating, review, display, detail }) {
-  const label = `${['One', 'Two', 'Three', 'Four', 'Five'][rating - 1]} out of five stars`;
-  return [
-    '      <figure class="testimonial reveal">',
-    `        <div class="testimonial-stars" role="img" aria-label="${label}">${'★'.repeat(rating)}</div>`,
-    `        <blockquote class="testimonial-quote">${escapeHtml(review)}</blockquote>`,
-    '        <figcaption class="testimonial-attr">',
-    `          <span class="testimonial-name">${escapeHtml(display)}</span>`,
-    `          <span class="testimonial-detail">${escapeHtml(detail)}</span>`,
-    '        </figcaption>',
-    '      </figure>'
-  ].join('\n');
-}
-
-// The month input gives "2026-04"; the card wants "April 2026".
-function formatDate(value) {
-  const m = /^(\d{4})-(\d{2})$/.exec(value);
-  if (!m) return value;
-  const months = ['January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'];
-  const month = months[Number(m[2]) - 1];
-  return month ? `${month} ${m[1]}` : value;
-}
-
-function escapeHtml(value) {
-  return String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
 }
 
 function str(value) {

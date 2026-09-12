@@ -189,14 +189,13 @@ in a shape that can go straight onto the site.
 
 **The fields mirror the testimonial card exactly** — rating, quote, name, and the date/venue line.
 The wedding date is a `month` input, so it yields `2026-04` and the Worker renders it as
-`April 2026`, which is the form the card wants. Adding a review should be a paste, not a retyping
-job, and the notification email carries a ready-made `<figure class="testimonial">` block to make
-that literal.
+`April 2026`, which is the form the card wants, so a review arrives ready to drop into the grid
+rather than needing reshaping.
 
 A few decisions worth keeping:
 
 - **Consent is a checkbox and deliberately not required.** Forced consent isn't consent. The email
-  states plainly whether it was given, and the pasteable snippet is labelled accordingly.
+  states plainly whether it was given, with a badge that reads either way.
 - **Its stylesheet and icon paths are relative (`../styles.css`), not root-relative.** A leading
   slash resolves to the filesystem root under `file://`, so the page opens unstyled when you
   double-click it — the same quick-tweak workflow the homepage supports.
@@ -222,6 +221,38 @@ Note that this collects testimonials for this site. It is not a Google review an
 Google's local pack — that still needs a Google Business Profile. If a follow-up ever asks happy
 submitters to repost to Google, send the same link to everyone: filtering by rating first is review
 gating, which Google prohibits.
+
+### The notification email
+
+The template lives in [`web/email.js`](web/email.js), imported by both `worker.js` and the preview
+script so a preview can never drift from what actually sends. Resend gets `text` and `html`
+together and the client picks one.
+
+**Preview it without sending anything:**
+
+```bash
+cd web
+node preview-email.mjs --open     # renders three cases to web/.email-preview/ (gitignored)
+```
+
+Email is not the web, and three constraints shape the HTML:
+
+- **Google Fonts do not load.** Gmail strips the `<link>` and Outlook ignores it, so Playfair and
+  Cormorant are unavailable. The serif stack falls back to Georgia, which is on essentially every
+  client and carries a similar high-contrast feel.
+- **Styles are inline and the layout is tables.** Several clients drop `<style>` blocks, and desktop
+  Outlook renders with Word's engine, which has no usable flexbox or grid.
+- **The inner table needs `table-layout: fixed`.** Tables size to their content, so a single long
+  unbroken line stretches the email well past its 600px max-width. `overflow-x: auto` does nothing
+  in an email client.
+
+**The email is written for the photographers, not for whoever maintains the site.** It reports a
+review in readable form and stops there — it deliberately carries no markup to copy, since the
+people receiving it have no use for that. Everything needed to build a testimonial card is in the
+body anyway: rating, quote, credit, and the date/venue line.
+
+Review text is still HTML-escaped into the body — `preview-email.mjs` includes a case with a
+literal `<em>` and an ampersand in the review so that stays covered.
 
 Not yet wired: Cloudflare Turnstile. The honeypot handles casual bots; Turnstile is the next step
 if real spam arrives.

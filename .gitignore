@@ -1,11 +1,14 @@
+# Misc
 .DS_Store
+TODO.md
+.env
 
 # Local wrangler dev state (recreated by `wrangler dev`)
 .wrangler/
 
-TODO.md
-.env
-
 # Local Worker secrets for `wrangler dev` — same class of file as .env
 .dev.vars
 .dev.vars.*
+
+# Generated email previews (`node preview-email.mjs`)
+.email-preview/
