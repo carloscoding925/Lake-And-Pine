@@ -1,6 +1,6 @@
 # Lake & Pine Collective
 
-Static marketing site for **Lake & Pine Collective**, a wedding photo and film collective based in the Reno-Tahoe area. The site is a single-page portfolio with sections for the team's story, approach, photo and film work, packages, and contact details. Enquiries go through a `mailto:` link rather than a form. The one piece of server-side code is a small Worker backing the review form at `/reviews` (see [Review form](#review-form)).
+Static marketing site for **Lake & Pine Collective**, a wedding photo and film collective based in the Reno-Tahoe area. The site is a single-page portfolio with sections for the team's story, approach, photo and film work, packages, testimonials, and contact details. Enquiries go through a `mailto:` link rather than a form. The one piece of server-side code is a small Worker backing the review form at `/reviews` (see [Review form](#review-form)).
 
 Live at [lakeandpinecollective.com](https://lakeandpinecollective.com).
 
@@ -20,26 +20,28 @@ The site is intentionally simple — no build step, no framework — so it stays
 ```
 Lake-And-Pine/
 ├── assets/                    # Original full-resolution photos (NOT deployed — kept for re-processing)
-├── web/
-│   ├── wrangler.jsonc         # Cloudflare deploy config
-│   ├── worker.js              # Review form endpoint — NOT served, sits outside public/
-│   └── public/                # Everything in here is what gets served
+├── web/                          # Wrangler's root — nothing here is served except public/
+│   ├── wrangler.jsonc            # Cloudflare deploy config
+│   ├── worker.js                 # /api/review endpoint; falls through to assets
+│   ├── email.js                  # Notification email template (worker + preview share it)
+│   ├── preview-email.mjs         # Renders that email locally without sending
+│   └── public/                   # Everything in here is what gets served
 │       ├── index.html
 │       ├── styles.css
 │       ├── reviews/
-│       │   └── index.html     # /reviews — review submission form (noindex)
-│       ├── favicon.ico        # Browser tab icon (multi-size 16/32/48)
-│       ├── apple-touch-icon.png   # iOS / iMessage icon (180×180)
-│       ├── og-image.png       # Open Graph link preview (1200×1200)
-│       ├── robots.txt         # Allows all crawlers, points at the sitemap
-│       ├── sitemap.xml        # Single-URL sitemap (update lastmod on content changes)
-│       └── optimized-assets/  # Web-ready portfolio images and team portraits
+│       │   └── index.html        # /reviews — submission form (noindex, unlinked)
+│       ├── favicon.ico           # Browser tab icon (multi-size 16/32/48)
+│       ├── apple-touch-icon.png  # iOS / iMessage icon (180×180)
+│       ├── og-image.png          # Open Graph link preview (1200×1200)
+│       ├── robots.txt            # Allows all crawlers, points at the sitemap
+│       ├── sitemap.xml           # Single-URL sitemap (update lastmod on content changes)
+│       └── optimized-assets/     # Web-ready portfolio images and team portraits
 └── README.md
 ```
 
 The split between `assets/` (project root) and `web/public/optimized-assets/` is deliberate: only files inside `web/public/` are served by Cloudflare, so the high-resolution originals never ship to the public site but stay available locally for re-processing.
 
-`worker.js` sits beside `public/` rather than in it for the same reason — anything inside the assets directory is a public URL.
+`worker.js`, `email.js`, and `preview-email.mjs` sit beside `public/` rather than inside it for the same reason — anything in the assets directory becomes a public URL. Verified: `/worker.js` and `/email.js` both 404.
 
 ## Local development
 
@@ -92,57 +94,18 @@ returns `502`. Those two responses are the quickest way to tell which half is mi
 `REVIEW_TO` and `REVIEW_FROM` are optional overrides; without them the Worker sends to
 `weddings@lakeandpinecollective.com` from `reviews@lakeandpinecollective.com`.
 
-## Image workflow
+**Set the production secret after a deploy, not before.** Cloudflare refuses `wrangler secret put`
+when the Worker's latest version isn't the active deployment:
 
-Source photos from the camera are typically 5–10 MB each — far larger than what the web needs. Before adding new photos to the portfolio:
+```
+✘ [ERROR] Secret edit failed. You attempted to modify a secret, but the latest version of your
+  Worker isn't currently deployed.
+```
 
-1. Drop the originals into the project-root `assets/` folder (kept out of the deploy).
-2. Resize and recompress with ImageMagick into `web/public/optimized-assets/`:
-
-   ```bash
-   cd assets
-   for f in your-photos.jpg; do
-     magick "$f" \
-       -auto-orient \
-       -resize '1600x1600>' \
-       -strip \
-       -interlace Plane \
-       -sampling-factor 4:2:0 \
-       -quality 82 \
-       "../web/public/optimized-assets/$f"
-   done
-   ```
-
-   Settings: max 1600px on the long edge (still crisp on retina), JPEG quality 82, EXIF stripped, progressive encoding so images render top-to-bottom as they download.
-
-3. Reference the new file from `public/index.html` using a path like `optimized-assets/your-photo.jpg`.
-
-This pipeline reduced the photo grid payload from ~36 MB → ~1.4 MB (a 96% reduction) with no visible quality loss.
-
-### The team portraits, and why they left the HTML
-
-The three portraits used to be inlined into `index.html` as base64 `data:` URIs, which made the document ~329 KB rather than ~42 KB. They are now ordinary files — `optimized-assets/team-chava.jpg`, `-isma`, `-juan` — carrying `loading="lazy"` because the team section is below the fold.
-
-They were **extracted byte-for-byte rather than re-exported**: at 900×1125 and quality 80 they already sit under the pipeline's 1600px ceiling, so `-resize '1600x1600>'` is a no-op and a re-encode at q82 only costs a generation. Measured, the whole pipeline moved the three files by 23 bytes.
-
-Total transfer barely moved either, which is the part worth knowing before optimising anything else here — Brotli recovers almost all of base64's 33% inflation, so the two layouts are within ~2.5 KB of each other:
-
-| | HTML (brotli) | images | total |
-|---|---|---|---|
-| inlined | 221.9 KB | — | 221.9 KB |
-| as files | 8.8 KB | 215.4 KB | 224.4 KB |
-
-The win is in *when* those bytes move, not how many:
-
-- **The document is 96% smaller.** Everything after the team section in the source — the three Vimeo iframes, pricing, contact, and the inline `<script>` that wires the carousel and lightbox — used to sit behind 217 KB of portrait data in the byte stream.
-- **A visitor who bounces at the hero never fetches them.**
-- **They revalidate independently.** Cloudflare serves this site `public, max-age=0, must-revalidate`, so an unchanged file comes back as a 304 with no body. Inlined, the portraits shared the HTML's ETag — so every copy edit re-sent all 215 KB of them to every returning visitor. On a hand-edited site that deploys on push, that was the recurring cost.
-
-No layout shift comes with the lazy loading: `.team-portrait-wrap` has `aspect-ratio: 4/5`, so the space is reserved whether or not the image has landed.
-
-**Don't downscale them.** The card is 373px wide at desktop, but the grid goes single-column with `max-width:480px` below 900px — the *phone* gets the bigger slot. At 900px the source covers 2.4× at desktop and 1.9× on a mobile retina screen. A 750px export saves 51 KB and drops mobile to 1.6×.
-
-Note that `assets/` holds no higher-resolution originals for these three — the 900px files are the only copies, so they are the masters as well as the exports.
+So the order is: merge to `main`, let the build deploy, *then* set the secret. Two ways around it if
+you need the key in place first — the Cloudflare dashboard (**Workers & Pages → lakeandpine →
+Settings → Variables and Secrets**) isn't subject to the check, and `wrangler versions secret put`
+works but creates a version that still needs deploying, so it adds a step rather than removing one.
 
 ## Films
 
@@ -178,6 +141,43 @@ Playing muted is the browser's designed fallback, so neither path can be fully v
 
 The same fix, and the reasoning behind it, is in the sibling Mountain Pine Media repo — where portrait films made the dead zone worse.
 
+## Testimonials
+
+A single centred card sits between **The Investment** and **Let's Talk**, filled in by hand from
+reviews that arrive through [the review form](#review-form).
+
+Two things about where it sits are load-bearing:
+
+- **The background is `--cream-warm`, the same field as the team section.** Both sections are about
+  people, and the change of ground seals off the gold contact CTA rather than letting the eye run
+  straight into a third dark section before the footer. It also repeats a rhythm the page already
+  establishes: About → Team → Approach runs cream → cream-warm → forest-deep, and
+  Investment → Testimonials → Let's Talk now does the same.
+- **`.contact` is `padding: 130px 0 60px`.** The short bottom exists because Let's Talk runs into
+  the dark footer as one continuous field. Insert a section between them and that has to go back to
+  `130px 0`, or the CTA sits cramped against the new boundary — and back again if it's removed.
+  This has already been changed twice; check it after any reordering.
+
+Two rules handle the shape of real review data rather than whatever is on the page today:
+
+- **`.testimonial:only-child` centres a lone review** by spanning every grid column and capping its
+  width. It stops applying by itself the moment a second review is added and the grid returns to
+  three-up, so there's nothing to undo later.
+- **`.testimonial-detail` has `min-height: 1.6em`.** Not every review arrives with a date and venue
+  — Google reviews in particular usually don't. Cards stretch to the tallest in their row, so
+  without a reserved line, one card missing that detail drops its hairline and name 24px below the
+  rest. An empty `<span class="testimonial-detail"></span>` is deliberate markup here, not an
+  oversight.
+
+To add a review, copy an existing `<figure class="testimonial">` and swap the four values. Spell the
+stars' `aria-label` out in words ("Five out of five stars") — a screen reader would otherwise read
+the glyphs one at a time.
+
+**Not yet added: `Review` / `AggregateRating` JSON-LD.** Worth doing once there are three or four
+real reviews; a rating aggregated from a single one is thin and Google generally won't surface stars
+for it. Marking up reviews that aren't real and verifiable is a manual-action risk against the whole
+domain, so this waits for content rather than being stubbed out.
+
 ## Review form
 
 `/reviews` is a standalone page (`public/reviews/index.html`) carrying a form that posts to
@@ -201,6 +201,10 @@ A few decisions worth keeping:
   double-click it — the same quick-tweak workflow the homepage supports.
 - **The page is `noindex` and stays out of `sitemap.xml`.** A submission form has nothing to offer
   a search result and would only compete with the homepage.
+- **Nothing on the site links to it, on purpose.** The path is handed out directly — texted or
+  emailed to couples after their gallery lands — so only actual clients ever reach it. Together with
+  `noindex` that makes the page effectively unlisted. A footer link would undo that, so don't add
+  one without deciding to.
 - **The honeypot field is positioned off-screen rather than `display:none`**, which the cruder bots
   check for. A submission that fills it gets a `200` and is silently dropped — telling a bot it was
   caught only helps it.
@@ -257,6 +261,58 @@ literal `<em>` and an ampersand in the review so that stays covered.
 Not yet wired: Cloudflare Turnstile. The honeypot handles casual bots; Turnstile is the next step
 if real spam arrives.
 
+## Image workflow
+
+Source photos from the camera are typically 5–10 MB each — far larger than what the web needs. Before adding new photos to the portfolio:
+
+1. Drop the originals into the project-root `assets/` folder (kept out of the deploy).
+2. Resize and recompress with ImageMagick into `web/public/optimized-assets/`:
+
+   ```bash
+   cd assets
+   for f in your-photos.jpg; do
+     magick "$f" \
+       -auto-orient \
+       -resize '1600x1600>' \
+       -strip \
+       -interlace Plane \
+       -sampling-factor 4:2:0 \
+       -quality 82 \
+       "../web/public/optimized-assets/$f"
+   done
+   ```
+
+   Settings: max 1600px on the long edge (still crisp on retina), JPEG quality 82, EXIF stripped, progressive encoding so images render top-to-bottom as they download.
+
+3. Reference the new file from `public/index.html` using a path like `optimized-assets/your-photo.jpg`.
+
+This pipeline reduced the photo grid payload from ~36 MB → ~1.4 MB (a 96% reduction) with no visible quality loss.
+
+### The team portraits, and why they left the HTML
+
+The three portraits used to be inlined into `index.html` as base64 `data:` URIs, which made the document ~329 KB rather than ~42 KB. They are now ordinary files — `optimized-assets/team-chava.jpg`, `-isma`, `-juan` — carrying `loading="lazy"` because the team section is below the fold.
+
+They were **extracted byte-for-byte rather than re-exported**: at 900×1125 and quality 80 they already sit under the pipeline's 1600px ceiling, so `-resize '1600x1600>'` is a no-op and a re-encode at q82 only costs a generation. Measured, the whole pipeline moved the three files by 23 bytes.
+
+Total transfer barely moved either, which is the part worth knowing before optimising anything else here — Brotli recovers almost all of base64's 33% inflation, so the two layouts are within ~2.5 KB of each other:
+
+| | HTML (brotli) | images | total |
+|---|---|---|---|
+| inlined | 221.9 KB | — | 221.9 KB |
+| as files | 8.8 KB | 215.4 KB | 224.4 KB |
+
+The win is in *when* those bytes move, not how many:
+
+- **The document is 96% smaller.** Everything after the team section in the source — the three Vimeo iframes, pricing, contact, and the inline `<script>` that wires the carousel and lightbox — used to sit behind 217 KB of portrait data in the byte stream.
+- **A visitor who bounces at the hero never fetches them.**
+- **They revalidate independently.** Cloudflare serves this site `public, max-age=0, must-revalidate`, so an unchanged file comes back as a 304 with no body. Inlined, the portraits shared the HTML's ETag — so every copy edit re-sent all 215 KB of them to every returning visitor. On a hand-edited site that deploys on push, that was the recurring cost.
+
+No layout shift comes with the lazy loading: `.team-portrait-wrap` has `aspect-ratio: 4/5`, so the space is reserved whether or not the image has landed.
+
+**Don't downscale them.** The card is 373px wide at desktop, but the grid goes single-column with `max-width:480px` below 900px — the *phone* gets the bigger slot. At 900px the source covers 2.4× at desktop and 1.9× on a mobile retina screen. A 750px export saves 51 KB and drops mobile to 1.6×.
+
+Note that `assets/` holds no higher-resolution originals for these three — the 900px files are the only copies, so they are the masters as well as the exports.
+
 ## SEO & link previews
 
 The `<head>` includes Open Graph and Twitter Card meta tags pointing at `og-image.png` (the company logo, 1200×1200), so the site renders a proper preview card when shared via iMessage, Slack, Twitter, Discord, etc.
@@ -267,4 +323,12 @@ Alongside those:
 - **Canonical link** and a meta description.
 - **`robots.txt`** allowing all crawlers and pointing at **`sitemap.xml`**. The sitemap has a single URL and a hardcoded `lastmod` — bump it when the content changes meaningfully.
 
-Note that the biggest remaining wins for search visibility are off-site: a Google Business Profile and Search Console verification.
+The sitemap is single-URL by design. [`/reviews`](#review-form) is `noindex` and stays out of it —
+it's a submission form handed directly to clients, not a page meant to be found.
+
+Still open: **`Review` / `AggregateRating` JSON-LD** once there are enough real reviews to justify
+it (see [Testimonials](#testimonials)). That's what puts star ratings under a search result.
+
+Note that the biggest remaining wins for search visibility are off-site: a Google Business Profile
+and Search Console verification. The review form feeds this site's testimonials; it builds nothing
+in Google's local pack, which is a separate job.
