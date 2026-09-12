@@ -403,9 +403,17 @@ low-risk whenever someone wants it, since both streams already authenticate clea
 
 **There is no `rua` tag, by choice.** Aggregate reports arrive as daily XML from every receiver that
 sees the domain's mail, and pointing that at the shared inbox is noise the photographers don't need.
-The trade is no visibility into failures. If that's ever wanted, the address has to be on this
-domain — an external one (a personal Gmail, say) requires *that* domain to publish an authorisation
-record, which it won't.
+Without it no reports are generated at all — receivers have no address to send to.
+
+The trade is no visibility, and it matters mainly if enforcement is ever wanted. The two senders
+here are already known and verified; what reports would catch is a *forgotten* third one — an old
+form tool or mailing list still sending as this domain. Under `p=none` that's harmless, but under
+`p=quarantine` its mail starts getting junked. So the order is: turn `rua` on, watch for a few
+weeks, tighten, then drop it again if the noise isn't wanted.
+
+Two ways to receive them. An alias on this domain (`dmarc@`) needs no extra setup. An external
+address works too, but only if that domain publishes `lakeandpinecollective.com._report._dmarc.<their-domain>`
+authorising it — which dedicated DMARC report services do by design, and a personal Gmail does not.
 
 Verifying, including straight from the authoritative nameservers when a local resolver has a stale
 negative cache:
