@@ -151,12 +151,13 @@
            worker.js — the Worker pins it at verify time, so changing one alone rejects
            every submission.
 
-           ⚠ The sitekey below is Cloudflare's DUMMY TESTING KEY. It always passes, and
-           pairs with the dummy secret in web/.dev.vars so `wrangler dev` runs with no
-           real credentials. IT MUST BE SWAPPED FOR THE REAL SITEKEY BEFORE DEPLOY: a
-           live secret rejects dummy tokens, so leaving this here 403s every review. -->
+           This is the live sitekey (public by design — it is meant to sit in the page).
+           Its widget is scoped to lakeandpinecollective.com and www.lakeandpinecollective.com,
+           so it will not issue a valid token on localhost. For local work, put Cloudflare's
+           dummy testing secret back in web/.dev.vars rather than the real one; the Worker
+           skips action/hostname pinning for the documented testing secrets. -->
       <div class="cf-turnstile"
-           data-sitekey="1x00000000000000000000AA"
+           data-sitekey="0x4AAAAAAExtc8ZDLIwhP7ns"
            data-action="review"
            data-theme="light"
            data-refresh-expired="auto"></div>

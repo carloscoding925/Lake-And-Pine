@@ -321,14 +321,20 @@ configured secret is one of the documented testing values — decided from the s
 the response, so what comes back over the network can't influence it. This costs nothing in
 production, where a testing secret would already pass everything regardless.
 
-> ⚠️ **The sitekey in `reviews/index.html` is currently the dummy one and must be swapped before
-> deploy.** A live secret rejects dummy tokens, so leaving it in place makes every real submission
-> fail with a `403`. Create the widget under **Turnstile** in the Cloudflare dashboard, paste its
-> sitekey into the page, and set the matching secret with `wrangler secret put TURNSTILE_SECRET_KEY`
-> — subject to the same ordering rule as the Resend key (see [Deployment](#deployment)).
+> **`reviews/index.html` now carries the live sitekey**, and `TURNSTILE_SECRET_KEY` is set on the
+> production Worker. The widget is scoped to `lakeandpinecollective.com` and
+> `www.lakeandpinecollective.com` — both, because `www` serves the site rather than redirecting to
+> the apex, so a single-hostname widget would fail for anyone who lands there.
 >
-> Cloudflare stamps the dummy widget with a red *"For testing only. If seen, report to site owner"*
-> bar, so this is visible on the page rather than silent — but it fails at submit time either way.
+> **Keep the dummy secret in `web/.dev.vars`, not the real one.** The live widget won't issue a
+> valid token on `localhost`, and the Worker only skips action/hostname pinning for the documented
+> testing secrets — so a real secret locally means every `wrangler dev` submission `403`s. The
+> alternative, if you want to exercise the real widget locally, is adding `localhost` to the
+> widget's hostname list in the dashboard.
+>
+> If you ever see a red *"For testing only. If seen, report to site owner"* bar under the widget on
+> the live site, the dummy sitekey has come back — that bar is Cloudflare's own tell, and every
+> submission will be failing at verify time.
 
 Reviews containing a link are **flagged, not blocked**: the subject gets a `[possible spam]` prefix
 and the email carries a banner. Genuine wedding reviews essentially never carry a URL and SEO spam
