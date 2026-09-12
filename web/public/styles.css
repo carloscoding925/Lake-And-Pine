@@ -1258,6 +1258,20 @@ footer {
 .review-thanks .section-intro { margin: 0 auto 10px; }
 .review-thanks:focus { outline: none; }
 
+/* Turnstile renders a fixed-size iframe of its own; this only places it. The reserved
+   height stops the submit button jumping down when the widget finishes loading. */
+.review-form .cf-turnstile { min-height: 65px; margin-top: 2px; }
+
+.form-noscript {
+  background: var(--cream-warm);
+  border-left: 2px solid var(--gold);
+  padding: 20px 24px;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 17px; line-height: 1.6;
+  color: var(--forest-deep);
+}
+.form-noscript a { color: var(--forest-deep); }
+
 /* Off-screen rather than display:none — see the note on the field in reviews/index.html */
 .hp {
   position: absolute;

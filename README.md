@@ -13,6 +13,7 @@ The site is intentionally simple — no build step, no framework — so it stays
 - **Vimeo** — highlight films are embedded via Vimeo's iframe player rather than self-hosted, so we get adaptive-bitrate streaming, a polished player, and no Cloudflare bandwidth cost for video (see [Films](#films)).
 - **Cloudflare Workers** — deployment target, using Workers static assets. Configured via [`wrangler.jsonc`](web/wrangler.jsonc) with `assets.directory: "./public"`, so `web/public/` is the site root and `web/worker.js` sits outside it and is never itself servable.
 - **Resend** — transactional email API the review Worker posts to. The API key lives in Worker secrets, never in the repo.
+- **Cloudflare Turnstile** — CAPTCHA alternative guarding the review form, verified server-side in the Worker (see [Spam filtering](#spam-filtering)).
 - **ImageMagick** — local CLI tool used to resize and recompress portfolio photos before deploy (see [Image workflow](#image-workflow)).
 
 ## Project structure
@@ -91,8 +92,15 @@ RESEND_API_KEY=re_...
 Without it the endpoint returns `500 {"error":"Email is not configured."}`; with a bad key it
 returns `502`. Those two responses are the quickest way to tell which half is misconfigured.
 
+The Worker needs a second secret, `TURNSTILE_SECRET_KEY`, set exactly the same way in both places.
+Locally `.dev.vars` uses Cloudflare's always-passing dummy secret, so `wrangler dev` needs no real
+credential — see [Spam filtering](#spam-filtering), which also covers the sitekey that must be
+swapped in the page before deploy.
+
 `REVIEW_TO` and `REVIEW_FROM` are optional overrides; without them the Worker sends to
 `weddings@lakeandpinecollective.com` from `reviews@lakeandpinecollective.com`.
+`ALLOWED_ORIGINS` and `TURNSTILE_EXPECT_HOSTNAME` are optional too, and only needed if the site is
+ever served from a hostname the Worker doesn't see as its own.
 
 **Set the production secret after a deploy, not before.** Cloudflare refuses `wrangler secret put`
 when the Worker's latest version isn't the active deployment:
@@ -205,12 +213,10 @@ A few decisions worth keeping:
   emailed to couples after their gallery lands — so only actual clients ever reach it. Together with
   `noindex` that makes the page effectively unlisted. A footer link would undo that, so don't add
   one without deciding to.
-- **The honeypot field is positioned off-screen rather than `display:none`**, which the cruder bots
-  check for. A submission that fills it gets a `200` and is silently dropped — telling a bot it was
-  caught only helps it.
-- **The form works without JavaScript.** It posts natively to `/api/review`; the Worker answers a
-  form-encoded request with a 303 back to `/reviews/?sent=1` and JSON to everything else, and the
-  page reads those parameters on load. With JS the submission resolves in place instead.
+- **The form requires JavaScript**, which was a deliberate reversal. It used to post natively with a
+  303 fallback so it worked without JS; Turnstile is a scripted challenge, and a no-JS path that
+  skipped it would have been precisely the door bots use. `<noscript>` hides the form and offers the
+  `mailto:` instead. See [Spam filtering](#spam-filtering).
 - **`.review-form[hidden]` needs its own rule.** `display: flex` beats the user-agent's
   `[hidden] { display: none }`, so without it the filled-in form stays on screen behind the
   success state.
@@ -226,6 +232,67 @@ Google's local pack — that still needs a Google Business Profile. If a follow-
 submitters to repost to Google, send the same link to everyone: filtering by rating first is review
 gating, which Google prohibits.
 
+### Spam filtering
+
+Four checks stand in front of the send, ordered cheapest first so a flood costs as little as
+possible. Only the last spends a network round trip.
+
+| # | Check | Rejects with |
+|---|---|---|
+| 1 | **Same-origin.** `Origin` must equal the Worker's own origin. Trivially forgeable by anything that isn't a browser — that's the point, it costs nothing and drops drive-by scripted posts. `ALLOWED_ORIGINS` extends it if the page is ever served from another hostname. | `403` |
+| 2 | **Rate limit.** Native Workers binding, 5 requests per 60s per IP. | `429` |
+| 3 | **Honeypot.** An off-screen `website` field — positioned off-screen rather than `display:none`, which the cruder bots check for. Filling it returns `200` and silently drops the submission; telling a bot it was caught only helps it. | `200` (lie) |
+| 4 | **[Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/).** Verified server-side against `siteverify`. | `403` |
+
+The rate limiter's `period` accepts only 10 or 60 seconds, so it is a flood stop rather than a daily
+cap. A real daily quota would need KV or a Durable Object, which this endpoint's volume doesn't
+justify. Counters are shared per `namespace_id` across the whole account — keep `1001` unique to
+this Worker.
+
+**Turnstile pins `action` and `hostname`, not just `success`.** A bare `success` check accepts any
+valid token, including one farmed from a widget on someone else's page and replayed here. `action`
+must match `TURNSTILE_ACTION` in `worker.js` and `data-action` on the widget — **change one and you
+must change the other**, or every submission is rejected.
+
+**Tokens are single-use and expire after 300 seconds.** The widget refreshes itself
+(`data-refresh-expired="auto"`), and the page calls `turnstile.reset()` after a failed submit so a
+retry doesn't spend an already-spent token. The page also refuses to post at all until a token
+exists, because a submission without one is a guaranteed `403` and the submitter isn't at fault.
+
+**A missing `TURNSTILE_SECRET_KEY` fails closed** with a `500`, like a missing Resend key. Spam
+protection that switches itself off when its configuration goes missing is the one failure mode
+worth refusing outright.
+
+#### The testing keys, and the trap in them
+
+Cloudflare publishes dummy keys, and `web/.dev.vars` uses the always-passing secret so
+`wrangler dev` runs with no real credentials:
+
+| | Sitekey (public, in the HTML) | Secret (in `.dev.vars`) |
+|---|---|---|
+| always passes | `1x00000000000000000000AA` | `1x0000000000000000000000000000000AA` |
+| always blocks | `2x00000000000000000000AB` | `2x0000000000000000000000000000000AA` |
+
+Dummy secrets answer with `hostname: "example.com"` and **no `action` field at all**, so pinning
+either would reject every local submission. `worker.js` therefore skips those two checks when the
+configured secret is one of the documented testing values — decided from the secret rather than from
+the response, so what comes back over the network can't influence it. This costs nothing in
+production, where a testing secret would already pass everything regardless.
+
+> ⚠️ **The sitekey in `reviews/index.html` is currently the dummy one and must be swapped before
+> deploy.** A live secret rejects dummy tokens, so leaving it in place makes every real submission
+> fail with a `403`. Create the widget under **Turnstile** in the Cloudflare dashboard, paste its
+> sitekey into the page, and set the matching secret with `wrangler secret put TURNSTILE_SECRET_KEY`
+> — subject to the same ordering rule as the Resend key (see [Deployment](#deployment)).
+>
+> Cloudflare stamps the dummy widget with a red *"For testing only. If seen, report to site owner"*
+> bar, so this is visible on the page rather than silent — but it fails at submit time either way.
+
+Reviews containing a link are **flagged, not blocked**: the subject gets a `[possible spam]` prefix
+and the email carries a banner. Genuine wedding reviews essentially never carry a URL and SEO spam
+essentially always does, but dropping a real review costs more than an odd email, so the judgement
+stays with a human.
+
 ### The notification email
 
 The template lives in [`web/email.js`](web/email.js), imported by both `worker.js` and the preview
@@ -236,7 +303,7 @@ together and the client picks one.
 
 ```bash
 cd web
-node preview-email.mjs --open     # renders three cases to web/.email-preview/ (gitignored)
+node preview-email.mjs --open     # renders four cases to web/.email-preview/ (gitignored)
 ```
 
 Email is not the web, and three constraints shape the HTML:
@@ -256,10 +323,8 @@ people receiving it have no use for that. Everything needed to build a testimoni
 body anyway: rating, quote, credit, and the date/venue line.
 
 Review text is still HTML-escaped into the body — `preview-email.mjs` includes a case with a
-literal `<em>` and an ampersand in the review so that stays covered.
-
-Not yet wired: Cloudflare Turnstile. The honeypot handles casual bots; Turnstile is the next step
-if real spam arrives.
+literal `<em>` and an ampersand in the review so that stays covered, and a `link-spam` case so the
+flagged-review banner is visible in the preview rather than only in production.
 
 ## Image workflow
 

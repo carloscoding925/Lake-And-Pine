@@ -7,6 +7,10 @@
  * Written for the photographers, not for whoever maintains the site: it reports a
  * review in readable form and stops there. It deliberately carries no markup to copy.
  *
+ * A review carrying a link is flagged rather than blocked. Link spam is the one shape
+ * that reliably isn't a real wedding review, but the cost of dropping a genuine review
+ * is worse than the cost of an odd email, so the judgement stays with a human.
+ *
  * Email is not the web. Three constraints shape everything below:
  *   1. Google Fonts do not load. Gmail strips the <link>, Outlook ignores it. Playfair
  *      and Cormorant are unavailable, so the serif stack falls back to Georgia, which
@@ -23,7 +27,9 @@ const C = {
   forestDeep: '#1F2A1F',
   forestSoft: '#4A5D48',
   gold: '#B08A3E',
-  rule: 'rgba(45,59,45,0.18)'
+  rule: 'rgba(45,59,45,0.18)',
+  flag: '#8C3B2E',
+  flagBg: '#F6E4DF'
 };
 
 const SERIF = "Georgia, 'Times New Roman', serif";
@@ -32,19 +38,35 @@ const SANS = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, s
 export function renderEmail(f) {
   const display = f.credit || f.name;
   const detail = [formatDate(f.date), f.venue].filter(Boolean).join(' · ');
+  const suspect = hasLink(f.review);
+  const ctx = { display, detail, suspect };
 
   return {
-    subject: `New review — ${f.name} (${f.rating}/5)`,
-    text: text(f, { display, detail }),
-    html: html(f, { display, detail })
+    subject: `${suspect ? '[possible spam] ' : ''}New review — ${f.name} (${f.rating}/5)`,
+    text: text(f, ctx),
+    html: html(f, ctx)
   };
+}
+
+/**
+ * Genuine wedding reviews essentially never carry a URL; SEO spam essentially always
+ * does. Scans the review body only — the submitter's email address is a different field
+ * and would match every time.
+ */
+export function hasLink(review) {
+  const v = String(review || '');
+  return /https?:\/\//i.test(v) ||
+    /\bwww\./i.test(v) ||
+    /\[url[=\]]/i.test(v) ||
+    /\b[a-z0-9][a-z0-9-]*\.(?:com|net|org|info|biz|xyz|top|shop|site|online|ru|cn|io)\b/i.test(v);
 }
 
 /* ---------------------------------------------------------------- plain text */
 /* Kept alongside the HTML, not replaced by it: Resend sends both and the client picks. */
-function text(f, { display, detail }) {
+function text(f, { display, detail, suspect }) {
   const stars = '★'.repeat(f.rating) + '☆'.repeat(5 - f.rating);
   return [
+    ...(suspect ? ['!! This review contains a link, which real ones rarely do. Read it before publishing.', ''] : []),
     `${stars}  (${f.rating}/5)`,
     '',
     f.review,
@@ -59,7 +81,7 @@ function text(f, { display, detail }) {
 }
 
 /* ---------------------------------------------------------------------- html */
-function html(f, { display, detail }) {
+function html(f, { display, detail, suspect }) {
   const stars =
     `<span style="color:${C.gold};">${'★'.repeat(f.rating)}</span>` +
     `<span style="color:${C.rule};">${'☆'.repeat(5 - f.rating)}</span>`;
@@ -81,6 +103,12 @@ function html(f, { display, detail }) {
       <div style="font-family:${SANS};font-size:10px;letter-spacing:0.32em;text-transform:uppercase;color:${C.gold};">New Review</div>
       <div style="font-family:${SERIF};font-size:17px;letter-spacing:0.18em;color:${C.cream};padding-top:7px;">LAKE &amp; PINE</div>
     </td></tr>
+
+    ${suspect ? `<tr><td style="background:${C.flagBg};padding:13px 32px;border-bottom:1px solid ${C.rule};">
+      <div style="font-family:${SANS};font-size:12px;line-height:1.5;color:${C.flag};">
+        <strong>Contains a link.</strong> Real reviews rarely do &mdash; worth reading before this goes on the site.
+      </div>
+    </td></tr>` : ''}
 
     <tr><td style="background:${C.creamWarm};padding:30px 32px;border-bottom:1px solid ${C.rule};">
       <div style="font-size:20px;line-height:1;letter-spacing:3px;">${stars}</div>

@@ -19,6 +19,11 @@
 <!-- Relative, not root-relative: "/styles.css" resolves to the filesystem root
      under file://, so the page opens unstyled when you just double-click it. -->
 <link rel="stylesheet" href="../styles.css">
+
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<!-- The form can't be submitted without JavaScript any more: Turnstile is a scripted
+     challenge, and a no-JS path that skipped it would just be the door bots use. -->
+<noscript><style>.review-form { display: none; }</style></noscript>
 </head>
 <body class="page-reviews">
 
@@ -50,6 +55,15 @@
         If we photographed your wedding, we'd love to hear how it went. It takes a minute, and it genuinely helps couples who are still deciding.
       </p>
     </div>
+
+    <noscript>
+      <p class="form-noscript">
+        This form needs JavaScript switched on, to check the submission isn't automated.
+        If you'd rather not, email your review straight to
+        <a href="mailto:weddings@lakeandpinecollective.com">weddings@lakeandpinecollective.com</a>
+        and we'll add it by hand.
+      </p>
+    </noscript>
 
     <form class="review-form" id="reviewForm" action="/api/review" method="post" novalidate>
 
@@ -129,6 +143,20 @@
         <span>Lake &amp; Pine can publish this review on their website.</span>
       </label>
 
+      <!-- Cloudflare Turnstile. data-action must stay in step with TURNSTILE_ACTION in
+           worker.js — the Worker pins it at verify time, so changing one alone rejects
+           every submission.
+
+           ⚠ The sitekey below is Cloudflare's DUMMY TESTING KEY. It always passes, and
+           pairs with the dummy secret in web/.dev.vars so `wrangler dev` runs with no
+           real credentials. IT MUST BE SWAPPED FOR THE REAL SITEKEY BEFORE DEPLOY: a
+           live secret rejects dummy tokens, so leaving this here 403s every review. -->
+      <div class="cf-turnstile"
+           data-sitekey="1x00000000000000000000AA"
+           data-action="review"
+           data-theme="light"
+           data-refresh-expired="auto"></div>
+
       <button type="submit" class="review-submit">Send Review</button>
       <p class="form-status" id="formStatus" role="status" aria-live="polite"></p>
 
@@ -180,40 +208,65 @@
       thanks.hidden = false;
     }
 
-    // Without JS the form posts natively and the Worker redirects back here, so the
-    // landing states have to be readable from the URL rather than from memory.
-    const params = new URLSearchParams(location.search);
-    if (params.has('sent')) {
-      showThanks();
-    } else if (params.has('error')) {
+    function fail(message) {
+      submit.disabled = false;
       statusEl.className = 'form-status is-error';
-      statusEl.textContent = 'That didn\u2019t send. Please email weddings@lakeandpinecollective.com and we\u2019ll sort it out.';
+      statusEl.textContent = message;
+      // Turnstile tokens are single-use, so the one just spent is dead either way.
+      // Without this reset a second attempt fails on a stale token rather than on
+      // whatever actually went wrong the first time.
+      if (window.turnstile) window.turnstile.reset();
     }
 
-    // The form posts on its own without this handler; the fetch path exists so a
-    // submission can resolve in place rather than throwing the page away.
+    const GENERIC_ERROR =
+      'That didn\u2019t send. Please email weddings@lakeandpinecollective.com and we\u2019ll sort it out.';
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (!form.reportValidity()) return;
+
+      // The widget usually resolves before anyone finishes typing, but it can still be
+      // working on a slow connection. Posting without a token is a guaranteed 403, so
+      // say what's happening instead of blaming the submitter for it.
+      const token = form.querySelector('[name="cf-turnstile-response"]');
+      if (!token || !token.value) {
+        statusEl.className = 'form-status is-pending';
+        statusEl.textContent = 'Just a moment — still checking your browser. Try again in a second.';
+        return;
+      }
 
       submit.disabled = true;
       statusEl.className = 'form-status is-pending';
       statusEl.textContent = 'Sending…';
 
+      let res;
       try {
-        const res = await fetch(form.action, {
+        res = await fetch(form.action, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(Object.fromEntries(new FormData(form)))
         });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
+      } catch (err) {
+        fail(GENERIC_ERROR);
+        return;
+      }
+
+      if (res.ok) {
         showThanks();
         thanks.focus();
-      } catch (err) {
-        submit.disabled = false;
-        statusEl.className = 'form-status is-error';
-        statusEl.textContent = 'That didn’t send. Please email weddings@lakeandpinecollective.com and we’ll sort it out.';
+        return;
       }
+
+      // 403 and 429 are the two the Worker expects a person to be able to act on, so
+      // they get their own wording; everything else falls back to "email us instead".
+      let message = GENERIC_ERROR;
+      if (res.status === 403 || res.status === 429) {
+        try {
+          const body = await res.json();
+          if (body && body.error) message = body.error;
+        } catch (err) { /* keep the generic message */ }
+      }
+      fail(message);
     });
   })();
 </script>

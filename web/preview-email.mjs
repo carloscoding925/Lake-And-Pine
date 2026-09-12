@@ -24,8 +24,9 @@ const CASES = {
     date: '2026-04',
     consent: true
   },
-  // The awkward one: no consent, no venue, and characters that must not break the
-  // pasteable snippet or render as markup inside the <pre>.
+  // The awkward one: every optional field empty, so it covers the "not given"
+  // fallbacks and the no-consent badge — plus characters that must be escaped
+  // rather than rendered as markup inside the quote.
   'three-star-no-consent': {
     name: 'Sam & Jo',
     email: 'sam@example.com',
@@ -35,6 +36,18 @@ const CASES = {
     credit: '',
     date: '',
     consent: false
+  },
+  // Flagged, not blocked. The Worker sends this like any other review and the email
+  // carries the banner, so the preview has to show that path or nobody ever sees it.
+  'link-spam': {
+    name: 'Premier SEO Services',
+    email: 'contact@example.net',
+    review: 'Great photographer! Visit https://cheap-backlinks.top or www.rank-faster.xyz for the best rates on wedding SEO.',
+    rating: 5,
+    venue: '',
+    credit: '',
+    date: '',
+    consent: true
   },
   'long-review': {
     name: 'Priya Raghunathan-Whitfield',

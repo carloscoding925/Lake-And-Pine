@@ -13,6 +13,20 @@
     "directory": "./public",
     "binding": "ASSETS"
   },
+  // Per-IP burst limiter in front of /api/review. `period` only accepts 10 or 60, so
+  // this is deliberately a flood stop rather than a daily cap — a real daily quota
+  // would need KV or a Durable Object, which this endpoint's volume doesn't justify.
+  // Counters are shared by namespace_id across the account, so keep this one unique.
+  "ratelimits": [
+    {
+      "name": "REVIEW_LIMITER",
+      "namespace_id": "1001",
+      "simple": {
+        "limit": 5,
+        "period": 60
+      }
+    }
+  ],
   "compatibility_flags": [
     "nodejs_compat"
   ]
