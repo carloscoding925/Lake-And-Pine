@@ -866,6 +866,15 @@ section { padding: 130px 0; position: relative; }
 .package.featured:hover {
   transform: translateY(-20px);
 }
+/* A lone package would otherwise sit in the first third of the three-column
+   grid. Same fix as .testimonial:only-child; it stops applying by itself if a
+   second package is added back. */
+.package:only-child {
+  grid-column: 1 / -1;
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+}
 .package.featured .pkg-name { color: var(--cream); }
 .package.featured .pkg-tag { color: var(--gold-soft); }
 .package.featured .pkg-price { color: var(--cream); }
