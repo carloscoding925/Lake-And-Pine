@@ -8,6 +8,11 @@
   --sage: #8B9D7E;
   --gold: #B08A3E;
   --gold-soft: #C9A25E;
+  /* Gold for text on the cream grounds. --gold is 2.8:1 on --cream and 2.6:1 on
+     --cream-warm, short of WCAG AA's 4.5:1 and flagged by every automated checker;
+     this clears it on both (5.0 / 4.7). --gold stays for fills, rules, borders, the
+     logo, and anything on the dark sections, where it already passes. */
+  --gold-text: #7F6124;
   --ink: #1A1F1A;
 }
 
@@ -43,7 +48,7 @@ body {
   font-size: 11px;
   letter-spacing: 0.4em;
   text-transform: uppercase;
-  color: var(--gold);
+  color: var(--gold-text);
   font-weight: 500;
 }
 .divider {
@@ -90,7 +95,7 @@ nav.scrolled { padding: 14px 40px; }
   transition: width 0.3s ease;
 }
 .nav-links a:hover::after { width: 100%; }
-.nav-links a:hover { color: var(--gold); }
+.nav-links a:hover { color: var(--gold-text); }
 .nav-cta {
   padding: 10px 22px; border: 1px solid var(--forest-deep);
   font-size: 11px; letter-spacing: 0.25em; text-transform: uppercase;
@@ -241,7 +246,7 @@ nav.scrolled { padding: 14px 40px; }
 section { padding: 130px 0; position: relative; }
 .section-eyebrow {
   font-size: 10px; letter-spacing: 0.5em; text-transform: uppercase;
-  color: var(--gold); font-weight: 500; margin-bottom: 18px;
+  color: var(--gold-text); font-weight: 500; margin-bottom: 18px;
 }
 .section-title {
   font-family: 'Playfair Display', serif;
@@ -298,7 +303,7 @@ section { padding: 130px 0; position: relative; }
 .stat-num {
   font-family: 'Playfair Display', serif;
   font-style: italic; font-weight: 400;
-  font-size: 42px; color: var(--gold);
+  font-size: 42px; color: var(--gold-text);
   line-height: 1;
 }
 .stat-label {
@@ -313,7 +318,7 @@ section { padding: 130px 0; position: relative; }
   margin-bottom: 26px;
 }
 .about-narrative p strong {
-  font-style: italic; font-weight: 500; color: var(--gold);
+  font-style: italic; font-weight: 500; color: var(--gold-text);
 }
 /* dropcap removed for cleaner reading */
 @media (max-width: 900px) {
@@ -361,7 +366,7 @@ section { padding: 130px 0; position: relative; }
   margin-bottom: 4px;
 }
 .team-name .nick {
-  font-style: italic; color: var(--gold); font-weight: 400;
+  font-style: italic; color: var(--gold-text); font-weight: 400;
 }
 .team-name .nick-j {
   font-style: normal;
@@ -385,7 +390,7 @@ section { padding: 130px 0; position: relative; }
   font-size: 10px; letter-spacing: 0.25em;
   text-transform: uppercase; color: var(--forest-soft);
 }
-.team-meta strong { color: var(--gold); font-weight: 500; }
+.team-meta strong { color: var(--gold-text); font-weight: 500; }
 @media (max-width: 900px) {
   .team-grid { grid-template-columns: 1fr; gap: 50px; max-width: 480px; margin: 0 auto; }
 }
@@ -444,7 +449,7 @@ section { padding: 130px 0; position: relative; }
   font-family: 'Cormorant Garamond', serif;
   font-style: italic;
   font-size: 18px;
-  color: var(--gold);
+  color: var(--gold-text);
   letter-spacing: 0.08em;
   text-align: center;
   margin-bottom: 24px;
@@ -631,20 +636,32 @@ section { padding: 130px 0; position: relative; }
 .film-dots {
   display: flex;
   justify-content: center;
-  gap: 10px;
-  margin-top: 26px;
+  margin-top: 18px;
 }
+/* The button is a 24px hit area (WCAG 2.2's minimum target size) with the 9px dot
+   drawn inside it. Buttons sit edge to edge, so the dots land 24px apart, centre to
+   centre — the old 9px buttons with a 10px gap were 19px, too small and too close to
+   tap reliably. margin-top dropped by the 7.5px the taller box adds above the dot. */
 .film-dot {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+.film-dot::before {
+  content: '';
+  box-sizing: border-box; /* the global `*` reset doesn't reach pseudo-elements */
   width: 9px;
   height: 9px;
   border-radius: 50%;
   border: 1px solid var(--gold);
-  background: transparent;
-  padding: 0;
-  cursor: pointer;
   transition: background 0.3s ease;
 }
-.film-dot.is-active { background: var(--gold); }
+.film-dot.is-active::before { background: var(--gold); }
 
 /* Expand-to-lightbox control. Shown only on the focused film — the peeking
    neighbours aren't playable, so an expand affordance there would be a dead end.
@@ -941,7 +958,7 @@ section { padding: 130px 0; position: relative; }
   font-style: italic; font-size: 17px;
   color: var(--forest-soft);
 }
-.pricing-note a { color: var(--gold); text-decoration: none; border-bottom: 1px solid var(--gold); padding-bottom: 2px; }
+.pricing-note a { color: var(--gold-text); text-decoration: none; border-bottom: 1px solid currentColor; padding-bottom: 2px; }
 @media (max-width: 900px) {
   .packages { grid-template-columns: 1fr; gap: 30px; max-width: 440px; margin: 40px auto 0; }
   .package.featured { transform: none; }
@@ -991,7 +1008,7 @@ section { padding: 130px 0; position: relative; }
 .contact-row:first-child { border-top: 1px solid rgba(245, 239, 226, 0.15); }
 .contact-label {
   font-size: 9px; letter-spacing: 0.45em;
-  text-transform: uppercase; color: var(--cream); opacity: 0.5;
+  text-transform: uppercase; color: var(--cream); opacity: 0.6; /* 0.5 was 4.4:1, just under AA */
   display: block; margin-bottom: 6px;
 }
 .contact-value {
@@ -1036,7 +1053,7 @@ a.contact-row:hover .contact-value { color: var(--gold-soft); }
 }
 .testimonial-stars {
   font-size: 11px; letter-spacing: 0.3em;
-  color: var(--gold);
+  color: var(--gold-text);
   margin-bottom: 22px;
   line-height: 1;
 }
@@ -1103,7 +1120,7 @@ footer {
 .footer-brand svg { width: 26px; height: 21px; }
 .footer-meta {
   font-size: 10px; letter-spacing: 0.3em;
-  text-transform: uppercase; color: var(--cream); opacity: 0.5;
+  text-transform: uppercase; color: var(--cream); opacity: 0.6; /* 0.5 was 4.4:1, just under AA */
 }
 .footer-tag {
   font-family: 'Cormorant Garamond', serif;
@@ -1111,7 +1128,10 @@ footer {
   color: var(--cream); opacity: 0.55;
 }
 
-/* Reveal-on-scroll utility (subtle) */
+/* Reveal-on-scroll utility (subtle). Put it on a wrapper, never on the element that
+   holds the text: WAVE measures before anything has scrolled into view and reads the
+   text element's own opacity, so text directly inside a .reveal scores 1:1 and is
+   reported as a contrast error. Inside a wrapper it reads at its real colour. */
 .reveal {
   opacity: 0; transform: translateY(40px);
   transition: opacity 0.9s cubic-bezier(0.2, 0.8, 0.2, 1),
@@ -1135,7 +1155,7 @@ footer {
   color: var(--forest-soft); text-decoration: none; font-weight: 500;
   transition: color 0.2s ease;
 }
-.page-bar-back:hover { color: var(--gold); }
+.page-bar-back:hover { color: var(--gold-text); }
 /* Scoped to this page so the homepage is untouched. Without it the success state is
    short enough that the cream body shows below the dark footer. */
 .page-reviews { display: flex; flex-direction: column; min-height: 100vh; }
@@ -1164,7 +1184,7 @@ footer {
 }
 .optional {
   letter-spacing: 0.18em;
-  color: var(--forest-soft); opacity: 0.65;
+  color: var(--forest-soft); /* no opacity: at 0.65 it fell to 2.8:1 on the form's cream-warm */
   font-weight: 400;
 }
 .review-form input[type="text"],
@@ -1217,22 +1237,39 @@ footer {
   padding: 0 3px;
   cursor: pointer;
   line-height: 1;
-  color: rgba(45, 59, 45, 0.22);
+  color: var(--forest-soft);
   letter-spacing: normal;
   text-transform: none;
 }
 .review-form .star input { position: absolute; opacity: 0; width: 0; height: 0; }
-.review-form .star-glyph { font-size: 30px; transition: color 0.15s ease; }
+/* Empty stars are outlined and chosen ones solid, so the state reads by shape as well
+   as colour (WCAG 1.4.1). It also lets the outline carry full contrast: the old pale
+   filled star was 1.5:1, under the 3:1 a control needs to be seen at all (1.4.11), and
+   darkening it far enough would have made empty and chosen stars hard to tell apart.
+   The fill is cleared with -webkit-text-fill-color rather than a transparent `color`,
+   so `color` stays the stroke's real colour, which is also what contrast checkers read.
+   Each colour rule below has a fill twin one class deeper, so relative specificity is
+   unchanged from the colour-only version. */
+.review-form .star-glyph {
+  font-size: 30px; transition: color 0.15s ease;
+  -webkit-text-fill-color: transparent;
+  -webkit-text-stroke: 1px currentColor;
+}
 .review-form .star:has(input:checked),
-.review-form .star:has(~ .star input:checked) { color: var(--gold); }
+.review-form .star:has(~ .star input:checked) { color: var(--gold-text); }
+.review-form .star:has(input:checked) .star-glyph,
+.review-form .star:has(~ .star input:checked) .star-glyph { -webkit-text-fill-color: currentColor; }
 /* Gated on a star actually being hovered, not on the row. `:hover` on the container
    fired wherever the pointer was inside it, including where no star could answer with
    a preview — and it outranks `.star:has(input:checked)` (0,4,0 vs 0,3,1) while losing
    to `.star:has(~ .star input:checked)` (0,4,1). So it greyed the checked star and left
    the ones before it gold: five selected read as four. */
-.review-form .rating:has(.star:hover) .star { color: rgba(45, 59, 45, 0.22); }
+.review-form .rating:has(.star:hover) .star { color: var(--forest-soft); }
+.review-form .rating:has(.star:hover) .star .star-glyph { -webkit-text-fill-color: transparent; }
 .review-form .rating:has(.star:hover) .star:hover,
-.review-form .rating:has(.star:hover) .star:has(~ .star:hover) { color: var(--gold-soft); }
+.review-form .rating:has(.star:hover) .star:has(~ .star:hover) { color: var(--gold); }
+.review-form .rating:has(.star:hover) .star:hover .star-glyph,
+.review-form .rating:has(.star:hover) .star:has(~ .star:hover) .star-glyph { -webkit-text-fill-color: currentColor; }
 .review-form .star:has(input:focus-visible) { outline: 2px solid var(--gold); outline-offset: 3px; }
 
 /* Same reason as .star — must outrank .review-form label. Consent has to read as a
@@ -1296,13 +1333,13 @@ footer {
 }
 .required-tag {
   letter-spacing: 0.18em;
-  color: var(--gold); opacity: 0.9;
+  color: var(--gold-text);
   font-weight: 500;
 }
 /* Outranks `.review-form .star` (0,2,0) at (0,3,0), so the unfilled stars carry the
    warning colour until one is picked. */
 .rating-field.is-missing legend { color: #8C3B2E; }
-.rating-field.is-missing .star { color: rgba(140, 59, 46, 0.45); }
+.rating-field.is-missing .star { color: #8C3B2E; } /* outlines in the error red */
 
 /* Turnstile renders a fixed-size iframe of its own; this only places it. The reserved
    height stops the submit button jumping down when the widget finishes loading. */
