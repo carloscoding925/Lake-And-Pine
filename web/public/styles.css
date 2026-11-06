@@ -1053,7 +1053,7 @@ a.contact-row:hover .contact-value { color: var(--gold-soft); }
 }
 .testimonial-stars {
   font-size: 11px; letter-spacing: 0.3em;
-  color: var(--gold);
+  color: var(--gold-text);
   margin-bottom: 22px;
   line-height: 1;
 }
@@ -1128,7 +1128,10 @@ footer {
   color: var(--cream); opacity: 0.55;
 }
 
-/* Reveal-on-scroll utility (subtle) */
+/* Reveal-on-scroll utility (subtle). Put it on a wrapper, never on the element that
+   holds the text: WAVE measures before anything has scrolled into view and reads the
+   text element's own opacity, so text directly inside a .reveal scores 1:1 and is
+   reported as a contrast error. Inside a wrapper it reads at its real colour. */
 .reveal {
   opacity: 0; transform: translateY(40px);
   transition: opacity 0.9s cubic-bezier(0.2, 0.8, 0.2, 1),
@@ -1234,22 +1237,39 @@ footer {
   padding: 0 3px;
   cursor: pointer;
   line-height: 1;
-  color: rgba(45, 59, 45, 0.22);
+  color: var(--forest-soft);
   letter-spacing: normal;
   text-transform: none;
 }
 .review-form .star input { position: absolute; opacity: 0; width: 0; height: 0; }
-.review-form .star-glyph { font-size: 30px; transition: color 0.15s ease; }
+/* Empty stars are outlined and chosen ones solid, so the state reads by shape as well
+   as colour (WCAG 1.4.1). It also lets the outline carry full contrast: the old pale
+   filled star was 1.5:1, under the 3:1 a control needs to be seen at all (1.4.11), and
+   darkening it far enough would have made empty and chosen stars hard to tell apart.
+   The fill is cleared with -webkit-text-fill-color rather than a transparent `color`,
+   so `color` stays the stroke's real colour, which is also what contrast checkers read.
+   Each colour rule below has a fill twin one class deeper, so relative specificity is
+   unchanged from the colour-only version. */
+.review-form .star-glyph {
+  font-size: 30px; transition: color 0.15s ease;
+  -webkit-text-fill-color: transparent;
+  -webkit-text-stroke: 1px currentColor;
+}
 .review-form .star:has(input:checked),
-.review-form .star:has(~ .star input:checked) { color: var(--gold); }
+.review-form .star:has(~ .star input:checked) { color: var(--gold-text); }
+.review-form .star:has(input:checked) .star-glyph,
+.review-form .star:has(~ .star input:checked) .star-glyph { -webkit-text-fill-color: currentColor; }
 /* Gated on a star actually being hovered, not on the row. `:hover` on the container
    fired wherever the pointer was inside it, including where no star could answer with
    a preview — and it outranks `.star:has(input:checked)` (0,4,0 vs 0,3,1) while losing
    to `.star:has(~ .star input:checked)` (0,4,1). So it greyed the checked star and left
    the ones before it gold: five selected read as four. */
-.review-form .rating:has(.star:hover) .star { color: rgba(45, 59, 45, 0.22); }
+.review-form .rating:has(.star:hover) .star { color: var(--forest-soft); }
+.review-form .rating:has(.star:hover) .star .star-glyph { -webkit-text-fill-color: transparent; }
 .review-form .rating:has(.star:hover) .star:hover,
-.review-form .rating:has(.star:hover) .star:has(~ .star:hover) { color: var(--gold-soft); }
+.review-form .rating:has(.star:hover) .star:has(~ .star:hover) { color: var(--gold); }
+.review-form .rating:has(.star:hover) .star:hover .star-glyph,
+.review-form .rating:has(.star:hover) .star:has(~ .star:hover) .star-glyph { -webkit-text-fill-color: currentColor; }
 .review-form .star:has(input:focus-visible) { outline: 2px solid var(--gold); outline-offset: 3px; }
 
 /* Same reason as .star — must outrank .review-form label. Consent has to read as a
@@ -1319,7 +1339,7 @@ footer {
 /* Outranks `.review-form .star` (0,2,0) at (0,3,0), so the unfilled stars carry the
    warning colour until one is picked. */
 .rating-field.is-missing legend { color: #8C3B2E; }
-.rating-field.is-missing .star { color: rgba(140, 59, 46, 0.45); }
+.rating-field.is-missing .star { color: #8C3B2E; } /* outlines in the error red */
 
 /* Turnstile renders a fixed-size iframe of its own; this only places it. The reserved
    height stops the submit button jumping down when the widget finishes loading. */
