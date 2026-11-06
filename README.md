@@ -256,7 +256,8 @@ A few decisions worth keeping:
   success state.
 - **The star rating keeps radios in natural DOM order** and fills them with `:has()`, so keyboard
   and screen-reader order match what's on screen. The reversed-sibling trick usually used for this
-  gets that backwards.
+  gets that backwards. Empty stars are outlined and chosen ones solid, for contrast reasons covered
+  under [Review form stars](#review-form-stars).
 - **The hover preview is gated on `.rating:has(.star:hover)`, not on `.rating:hover`.** Gating on the
   row meant the grey-out fired wherever the pointer was inside the container, including the ~340px
   of empty space to its right, where no star could answer with a preview. Worse, it outranks
@@ -498,3 +499,91 @@ it (see [Testimonials](#testimonials)). That's what puts star ratings under a se
 Note that the biggest remaining wins for search visibility are off-site: a Google Business Profile
 and Search Console verification. The review form feeds this site's testimonials; it builds nothing
 in Google's local pack, which is a separate job.
+
+## Accessibility
+
+The target is **WCAG 2.1 Level AA**. The ADA names no technical standard for private websites, but
+courts and settlements consistently measure against that one, and the firms that file
+opportunistic ADA website suits find their targets by running automated checkers. So the aim is
+twofold: a site those checkers come back clean on, and one that actually works for the people the
+rules exist to protect.
+
+The first WAVE run (November 2026) scored 4 out of 10 on its AIM scale, with 3 errors (missing alt
+text on the mountain marks) and 28 contrast errors. The changes below clear all of them, and axe
+reports no violations on either page.
+
+### Gold text on cream: `--gold-text`
+
+`--gold` (`#B08A3E`) is 2.8:1 on `--cream` and 2.6:1 on `--cream-warm`, short of the 4.5:1 AA
+requires for text this size, and it caused most of the original contrast errors. **Gold text on a
+light section uses `--gold-text` (`#7F6124`) instead**: 5.0:1 and 4.7:1. A gold that passes on cream
+can't be a bright one; this is the same hue taken only as dark as the ratio needs.
+
+`--gold` stays for everything that isn't text on cream: the logo, buttons, borders, the film dots,
+and all gold on the dark sections, where it already passes (4.6:1 on `--forest-deep`).
+
+### Faded text on the dark sections
+
+Cream text at `opacity: 0.5` on `--forest-deep` comes out at 4.4:1: close enough to look fine, and
+still a fail. The floor is **0.55** (5.0:1), and the contact labels and footer copyright sit at
+0.6. Check the ratio before fading anything further.
+
+### The fade-in goes on a wrapper, never on the text
+
+`.reveal` starts at `opacity: 0` and only becomes visible when scrolled into view. WAVE measures
+without scrolling and reads the opacity of the element that *directly* holds the text, so text
+sitting straight inside a `.reveal` scores 1:1 and is reported as a contrast error, even though no
+visitor ever sees it that way. The two "Reach out…" pricing notes were exactly this, and they kept
+failing after their colour was fixed. Put `.reveal` on a wrapping `<div>`, as every other section
+does.
+
+### Decorative graphics
+
+The mountain marks (nav, hero and footer, plus the header and footer on `/reviews`) are inline SVGs
+carrying `aria-hidden="true"`. Each one sits beside the words "Lake & Pine", so a label would only
+make a screen reader read the name twice. That's the rule for any purely decorative graphic. A
+meaningful image gets alt text that describes it, as the portfolio photos do.
+
+### Review form stars
+
+Empty stars are **outlined** and chosen ones **solid**:
+
+| State | Look |
+|---|---|
+| empty | `--forest-soft` outline |
+| hover preview | solid `--gold` |
+| chosen | solid `--gold-text` |
+| missing (submitted without a rating) | outline in the error red |
+
+- **Why outlines.** The old empty star was a pale fill at 1.5:1, under the 3:1 a control needs to be
+  seen at all. Darkening a filled star that far would have made empty and chosen look alike. An
+  outline can be fully dark and still read as empty, and the state now shows by shape, not by
+  colour alone.
+- **The fill is cleared with `-webkit-text-fill-color: transparent`, not a transparent `color`.**
+  `color` stays the outline's real colour, which is what contrast checkers read; a transparent
+  `color` would be measured as 1:1.
+- **The visually hidden "1 star"…"5 stars" labels inherit the star's `color`.** WAVE doesn't
+  recognise the clip pattern and measures them anyway, so a faint star colour gets counted twice.
+
+The testimonial card's stars use `--gold-text` as well.
+
+### Touch targets
+
+Each `.film-dot` is a 24px button with the 9px dot drawn inside it by `::before`, which meets
+WCAG 2.2's minimum target size. The old 9px dots with a 10px gap sat 19px apart, too small to tap
+reliably.
+
+### Checking
+
+- **WAVE** ([wave.webaim.org](https://wave.webaim.org)): paste a URL. It's what the original audit
+  used and close to what suit-filing firms run. It has two blind spots, and both mattered here: it
+  skips text over gradients and semi-transparent backgrounds (the hero, the How We Work cards), and
+  it measures before anything has scrolled into view.
+- **axe DevTools** (browser extension): catches what WAVE doesn't, including target size, and
+  accounts for opacity properly.
+- **Test a branch before merging it.** Every pushed branch gets a Cloudflare preview at
+  `https://<branch>-lakeandpine.<account-subdomain>.workers.dev`, with slashes in the branch name
+  turned into hyphens. The exact link is on the commit's *Workers Builds* check in GitHub. Point
+  WAVE there rather than at production.
+- **Automated tools catch only part of WCAG.** Also tab through both pages with the keyboard alone,
+  listen with VoiceOver (Cmd+F5), and zoom to 200%.
